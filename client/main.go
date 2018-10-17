@@ -6,18 +6,19 @@ import (
 	"log"
 	"net"
 
+	"github.com/ageapps/Peerster/data"
 	"github.com/ageapps/Peerster/utils"
 	"github.com/dedis/protobuf"
 )
 
 var (
 	protocol     = "udp"
-	serverAdress = utils.GossipAddress{IP: net.ParseIP("127.0.0.1")}
+	serverAdress = utils.PeerAddress{IP: net.ParseIP("127.0.0.1")}
 )
 
 func sendMessage(msg string) error {
 	fmt.Println("Sending <" + msg + "> to address " + serverAdress.String())
-	tmsg := &utils.Message{
+	tmsg := &data.Message{
 		Text: msg,
 	}
 	buf, err1 := protobuf.Encode(tmsg)

@@ -3,109 +3,171 @@ package gossiper
 import (
 	"fmt"
 	"log"
-	"net"
+	"sync"
+	"time"
 
+	"github.com/ageapps/Peerster/data"
+	"github.com/ageapps/Peerster/logger"
 	"github.com/ageapps/Peerster/utils"
-	"github.com/dedis/protobuf"
 )
 
 // Gossiper struct
 type Gossiper struct {
-	address *net.UDPAddr
-	conn    *net.UDPConn
-	Name    string
-	Peers   *utils.PeerAddreses
+	peerConection   *ConnectionHandler
+	clientConection *ConnectionHandler
+	Name            string
+	Address         utils.PeerAddress
+	simpleMode      bool
+	peers           utils.PeerAddresses
+	messageStack    *MessageStack
+	monguerPocesses []*MongerHandler
+	counter         *utils.Counter // [name] adress
+	mux             sync.Mutex
 }
 
 // NewGossiper return new instance
-func NewGossiper(address, name string) (*Gossiper, error) {
-	if udpAddr, udpConn, err := startListening(address); err != nil {
-		return nil, err
-	} else {
-		return &Gossiper{
-			address: udpAddr,
-			conn:    udpConn,
-			Name:    name,
-		}, nil
+func NewGossiper(addressStr, name string, simple bool) (*Gossiper, error) {
+	address, err1 := utils.GetPeerAddress(addressStr)
+	connection, err2 := NewConnectionHandler(addressStr, name)
+	logger.Log(fmt.Sprint("Running simple mode: ", simple))
+
+	switch {
+	case err1 != nil:
+		return nil, err1
+	case err2 != nil:
+		return nil, err2
 	}
+	newCounter := utils.NewCounter(uint32(0))
+	return &Gossiper{
+		Name:          name,
+		Address:       address,
+		peerConection: connection,
+		simpleMode:    simple,
+		counter:       newCounter,
+	}, nil
 }
 
-func startListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
-	fmt.Println("Starting to linten in address: " + address)
-	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
-		return nil, nil, err1
-	} else if udpConn, err2 := net.ListenUDP("udp4", udpAddr); err2 != nil {
-		return nil, nil, err2
-	} else {
-		return udpAddr, udpConn, nil
-	}
+// Set gossiper peers
+func (gossiper *Gossiper) SetPeers(newPeers utils.PeerAddresses) {
+	gossiper.peers = newPeers
 }
 
-// BroadcastMessage function
-func (gossiper *Gossiper) BroadcastMessage(text string, incommingPeer string, origin string) {
-	for _, peer := range gossiper.Peers.Addresses {
-		if incommingPeer == peer.String() {
-			continue
-		}
-		udpaddr, err1 := net.ResolveUDPAddr("udp4", peer.String())
-		// fmt.Println("Sending message to " + udpaddr.String())
-		if err1 != nil {
-			log.Fatal(err1)
-		}
-		sender := origin
-		if sender == "" {
-			sender = gossiper.Name
-		}
-		msg := utils.NewSimpleMessage(sender, text, gossiper.address.String())
-		packet := &utils.GossipPacket{Simple: msg}
-		packetBytes, err2 := protobuf.Encode(packet)
-		gossiper.conn.WriteToUDP(packetBytes, udpaddr)
-		if err2 != nil {
-			log.Fatal(err2)
-		}
-	}
-}
-
-// ReceivePeerMessages function
-func (gossiper *Gossiper) ReceivePeerMessages() {
-	buffer := make([]byte, 1024)
-	packet := &utils.GossipPacket{}
+// ListenToPeers function
+// Start listening to Packets from peers
+func (gossiper *Gossiper) ListenToPeers() {
+	packet := &data.GossipPacket{}
 	for {
-		gossiper.conn.Read(buffer)
-		protobuf.Decode(buffer, packet)
-		go gossiper.handleMessage(packet.Simple)
+		if address, err := gossiper.peerConection.ReadPacket(packet); err != nil {
+			log.Fatal(err)
+		} else {
+			go gossiper.handlePeerPacket(packet, address)
+		}
 	}
 }
 
-func (gossiper *Gossiper) handleMessage(msg *utils.SimpleMessage) {
-	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v \n", msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
-	err := gossiper.Peers.Set(msg.RelayPeerAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("PEERS " + gossiper.Peers.String())
-	gossiper.BroadcastMessage(msg.Contents, msg.RelayPeerAddr, msg.OriginalName)
-}
-
-//ListenToClients function
+// ListenToClients function
+// start to listen for client messages
+// in desired port
 func (gossiper *Gossiper) ListenToClients(port int) {
-	address := gossiper.address.IP
-	fullAddress := fmt.Sprintf("%v:%v", address.String(), port)
-
-	if udpAddr, udpConn, err := startListening(fullAddress); err != nil {
+	address := gossiper.Address.IP
+	clientAddress := fmt.Sprintf("%v:%v", address.String(), port)
+	if connection, err := NewConnectionHandler(clientAddress, gossiper.Name+"-Client"); err != nil {
 		log.Fatal(err)
 	} else {
-		buffer := make([]byte, 1024)
-		msg := &utils.Message{}
-		fmt.Println("Listening to client in " + udpAddr.String())
+		msg := &data.Message{}
+		logger.Log("Listening to client in " + clientAddress)
 		for {
-			_, err := udpConn.Read(buffer)
+			_, err := connection.ReadMessage(msg)
 			if err != nil {
 				log.Fatal(err)
 			}
-			protobuf.Decode(buffer, msg)
-			fmt.Printf("CLIENT MESSAGE %v\n", msg.Text)
-			go gossiper.BroadcastMessage(msg.Text, "", "")
+			go gossiper.handleClientMessage(msg)
 		}
 	}
+}
+
+func (gossiper *Gossiper) handleClientMessage(msg *data.Message) {
+	logger.Log("Message received from client")
+	logger.LogClient(*msg)
+
+	if gossiper.simpleMode {
+		newMsg := data.NewSimpleMessage(gossiper.Name, msg.Text, gossiper.Address.String())
+		go gossiper.peerConection.BroadcastPacket(&gossiper.peers, &data.GossipPacket{Simple: newMsg}, gossiper.Address.String())
+	} else {
+		id := gossiper.counter.Increment()
+		rumorMessage := data.NewRumorMessage(gossiper.Name, id, msg.Text)
+		gossiper.messageStack.AddMessage(*rumorMessage)
+		go gossiper.mongerMessage(rumorMessage)
+	}
+
+}
+
+func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, origin string) {
+	err := gossiper.peers.Set(origin)
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch {
+	case packet.IsStatusMessage():
+		go gossiper.handleStatusMessage(packet.Status, origin)
+	case packet.IsRumorMessage():
+		logger.LogRumor(*packet.Rumor, origin)
+		logger.LogPeers(gossiper.peers)
+		go gossiper.handleRumorMessage(*packet.Rumor, origin)
+	default:
+		logger.LogSimple(*packet.Simple)
+		logger.LogPeers(gossiper.peers)
+		go gossiper.handleSimpleMessage(packet.Simple, origin)
+	}
+}
+
+func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, from string) {
+	if msg.OriginalName == gossiper.Name {
+		logger.Log("Received own message")
+		return
+	}
+	newMsg := data.NewSimpleMessage(msg.OriginalName, msg.Contents, gossiper.Address.String())
+	gossiper.peerConection.BroadcastPacket(&gossiper.peers, &data.GossipPacket{Simple: newMsg}, msg.RelayPeerAddr)
+}
+
+func (gossiper *Gossiper) handleRumorMessage(msg data.RumorMessage, from string) {
+	gossiper.messageStack.AddMessage(msg)
+	var message = gossiper.messageStack.getStatusMessage()
+	packet := &data.GossipPacket{Status: message}
+	logger.Log("Sending Status Message to <" + from + ">")
+	go gossiper.peerConection.SendPacketToPeer(from, packet)
+}
+
+func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, from string) {
+	for _, status := range msg.Want {
+		logger.LogStatus(status, from)
+		logger.LogPeers(gossiper.peers)
+		// gossiper.MongerHandler.ConfirmPendingMessage(from, status.NextID)
+		if gossiper.messageStack.AreMessagesMissing(from, status.NextID) {
+		}
+
+	}
+}
+
+//Reset function
+func (gossiper *Gossiper) StartEntropyTimer() {
+	usedPeers := make(map[string]bool)
+	for {
+		time.Sleep(1 * time.Second)
+		randPeerIndex := gossiper.peers.GetRandomPeer(usedPeers)
+		newpeer := gossiper.peers.Addresses[randPeerIndex]
+		usedPeers[newpeer.String()] = true
+		var message = gossiper.messageStack.getStatusMessage()
+		packet := &data.GossipPacket{Status: message}
+		go gossiper.peerConection.SendPacketToPeer(newpeer.String(), packet)
+		if len(usedPeers) >= len(gossiper.peers.Addresses) {
+			break
+		}
+	}
+}
+
+func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage) {
+	monguerProcess := NewMongerHandler(msg, gossiper.peerConection, &gossiper.peers)
+	gossiper.monguerPocesses = append(gossiper.monguerPocesses, monguerProcess)
+	gossiper.monguerPocesses[len(gossiper.monguerPocesses)-1].start()
 }
