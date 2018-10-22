@@ -20,6 +20,13 @@ func NewCounter(initialValue uint32) *Counter {
 func (counter *Counter) Increment() uint32 {
 	counter.mux.Lock()
 	defer counter.mux.Unlock()
-	counter.value = +1
+	counter.value++
 	return counter.value
+}
+
+//SetValue function
+func (counter *Counter) SetValue(value uint32) {
+	counter.mux.Lock()
+	defer counter.mux.Unlock()
+	counter.value = value
 }

@@ -1,5 +1,11 @@
 package data
 
+const (
+	PACKET_SIMPLE = "SIMPLE"
+	PACKET_RUMOR  = "RUMOR"
+	PACKET_STATUS = "STATUS"
+)
+
 // GossipPacket struct
 type GossipPacket struct {
 	Simple *SimpleMessage
@@ -22,8 +28,8 @@ func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
 }
 
 // NewStatusPacket create
-func NewStatusPacket(want []PeerStatus) *StatusPacket {
-	return &StatusPacket{Want: want}
+func NewStatusPacket(want *[]PeerStatus) *StatusPacket {
+	return &StatusPacket{Want: *want}
 }
 
 // NewRumorMessage create
@@ -31,12 +37,16 @@ func NewRumorMessage(origin string, ID uint32, text string) *RumorMessage {
 	return &RumorMessage{origin, ID, text}
 }
 
-// IsStatusMessage function
-func (packet *GossipPacket) IsStatusMessage() bool {
-	return packet.Rumor == nil && packet.Status != nil && packet.Simple == nil
-}
-
-// IsRumorMessage function
-func (packet *GossipPacket) IsRumorMessage() bool {
-	return packet.Rumor != nil && packet.Status == nil && packet.Simple == nil
+// GetPacketType function
+func (packet *GossipPacket) GetPacketType() string {
+	switch {
+	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil:
+		return PACKET_RUMOR
+	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil:
+		return PACKET_STATUS
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil:
+		return PACKET_SIMPLE
+	default:
+		return ""
+	}
 }

@@ -23,9 +23,10 @@ type PeerAddress struct {
 	Port int64
 }
 
-// PeerAddreses struct
+// PeerAddresses struct
 type PeerAddresses struct {
 	Addresses []PeerAddress
+	mux       sync.Mutex
 }
 
 // GetPeerAddress returns a PeerAdress
@@ -54,6 +55,9 @@ func (address *PeerAddress) Set(value string) error {
 }
 
 func (peers *PeerAddresses) String() string {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+
 	var s []string
 	for _, peer := range peers.Addresses {
 		s = append(s, peer.String())
@@ -61,31 +65,47 @@ func (peers *PeerAddresses) String() string {
 	return strings.Join(s, ",")
 }
 
+func (peers *PeerAddresses) GetAdresses() []PeerAddress {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	return peers.Addresses
+}
+
+func (peers *PeerAddresses) appendPeers(adress PeerAddress) {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	peers.Addresses = append(peers.Addresses, adress)
+}
+
 // Set PeerAddreses from string
 func (peers *PeerAddresses) Set(value string) error {
+
 	adresses := strings.Split(value, ",")
 	for _, item := range adresses {
 		var adress PeerAddress
 		if err := adress.Set(item); err != nil {
 			return err
 		} else if !strings.Contains(peers.String(), item) {
-			peers.Addresses = append(peers.Addresses, adress)
+			peers.appendPeers(adress)
 		}
 	}
 	return nil
 }
 
 // GetRandomPeer func
-func (peers *PeerAddresses) GetRandomPeer(usedPeers map[string]bool) int {
+func (peers *PeerAddresses) GetRandomPeer(usedPeers map[string]bool) *PeerAddress {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+
 	peerNr := len(peers.Addresses)
 	if len(usedPeers) >= peerNr {
-		return -1
+		return nil
 	}
 	for {
 		index := rand.Int() % peerNr
 		peerAddress := peers.Addresses[index].String()
 		if _, ok := usedPeers[peerAddress]; !ok {
-			return index
+			return &peers.Addresses[index]
 		}
 	}
 }
