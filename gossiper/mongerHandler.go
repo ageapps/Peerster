@@ -116,6 +116,7 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 	}
 }
 
+// Stop handler
 func (handler *MongerHandler) Stop() {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
@@ -124,6 +125,7 @@ func (handler *MongerHandler) Stop() {
 		handler.quitChannel <- true
 	}()
 }
+// Reset handler
 func (handler *MongerHandler) Reset() {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
@@ -148,16 +150,20 @@ func (handler *MongerHandler) getMonguerMessage() *data.RumorMessage {
 	return handler.currentMessage
 }
 
+// IsActive gets handler status
 func (handler *MongerHandler) IsActive() bool {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	return handler.active
 }
+
 func (handler *MongerHandler) isSynking() bool {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	return handler.currentlySynchronicing
 }
+
+// SetSynking state
 func (handler *MongerHandler) SetSynking(value bool) {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
@@ -173,71 +179,3 @@ func (handler *MongerHandler) setActive(value bool) {
 func  (handler *MongerHandler) logMonguer(msg string){
 	logger.Log(fmt.Sprintf("[MONGER-%v]%v",handler.name, msg))
 }
-
-// IsMessagePending func
-// func (handler *MongerHandler) IsMessagePending(address string) bool {
-// 	handler.mux.Lock()
-// 	defer handler.mux.Unlock()
-// 	_, ok := handler.pendingMessages[address]
-// 	return ok
-// }
-
-// GetPendingMessage func
-// func (handler *MongerHandler) GetPendingMessage(address string) uint32 {
-// 	handler.mux.Lock()
-// 	defer handler.mux.Unlock()
-// 	value, _ := handler.pendingMessages[address]
-// 	return value
-// }
-
-// func (g *Gossiper) rumourMongering(msg data.RumorMessage) {
-// 	addr := msg.Addr
-// 	gp := msg.Msg
-// 	usedNeighbours := make(map[string]bool)
-// 	if addr != "" {
-// 		usedNeighbours[addr] = true
-// 	}
-// 	randPeer := g.Neighbours.RandomIndexOutOfNeighbours(usedNeighbours)
-// 	fmt.Printf("\n Mongering with %v \n", randPeer)
-// 	usedNeighbours[randPeer] = true
-// 	g.sendMessageToNeighbour(gp, randPeer)
-// 	status := g.Status
-// 	status.ChangeStatus(randPeer)
-// 	var brk bool
-// 	for {
-// 		if randPeer == "" {
-// 			return
-// 		}
-// 		//Sleep while waiting for message
-// 		time.Sleep(1 * time.Second)
-// 		if brk {
-// 			break
-// 		}
-// 		select {
-// 		case msg := <-status.StatusChannel:
-// 			fmt.Println(msg.Msg.Status)
-// 			needMsgs := g.Messages.NeedMsgs(*msg.Msg.Status)
-// 			gp := &data.GossipPacket{
-// 				Status: &needMsgs,
-// 			}
-// 			g.sendMessageToNeighbour(gp, randPeer)
-// 			g.RetrieveMongerMessages()
-// 			randPeer = g.Neighbours.RandomIndexOutOfNeighbours(usedNeighbours)
-// 			usedNeighbours[randPeer] = true
-// 		default:
-// 			coin := rand.Int() % 2
-// 			if coin == 0 {
-// 				g.Status.ChangeStatus("")
-// 				g.Status.StopMongering()
-// 				brk = true
-// 			} else {
-// 				randPeer = g.Neighbours.RandomIndexOutOfNeighbours(usedNeighbours)
-// 				usedNeighbours[randPeer] = true
-// 				fmt.Printf("FLIPPED COIN sending rumor to %v \n", randPeer)
-// 				if randPeer != "" {
-// 					g.sendMessageToNeighbour(gp, randPeer)
-// 				}
-// 			}
-// 		}
-// 	}
-// }

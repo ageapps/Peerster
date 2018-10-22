@@ -52,7 +52,7 @@ func NewGossiper(addressStr, name string, simple bool) (*Gossiper, error) {
 	}, nil
 }
 
-// Set gossiper peers
+// SetPeers peers
 func (gossiper *Gossiper) SetPeers(newPeers *utils.PeerAddresses) {
 	gossiper.peers = newPeers
 }
@@ -125,13 +125,6 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, origin str
 		logger.LogPeers(gossiper.peers.String())
 		gossiper.handleSimpleMessage(packet.Simple, origin)
 	default:
-		// if packet.Rumor != nil {
-		// 	fmt.Println(*packet.Rumor)
-		// }
-		// if packet.Status != nil {
-		// 	fmt.Println(*packet.Status)
-		// }
-		// fmt.Println(*packet)
 		fmt.Println("Message not recognized")
 		// log.Fatal(errors.New("Message not recognized"))
 	}

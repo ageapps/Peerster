@@ -9,23 +9,25 @@ import (
 	"github.com/ageapps/Peerster/utils"
 	"github.com/dedis/protobuf"
 )
-
+// ConnectionHandler handles 
+// all connections coding and decoding all packets
 type ConnectionHandler struct {
 	address *net.UDPAddr
 	conn    *net.UDPConn
 	Name    string
 }
 
+// NewConnectionHandler function
 func NewConnectionHandler(address, name string) (*ConnectionHandler, error) {
-	if udpAddr, udpConn, err := startListening(address); err != nil {
+	udpAddr, udpConn, err := startListening(address); 
+	if err != nil {
 		return nil, err
-	} else {
-		return &ConnectionHandler{
-			address: udpAddr,
-			conn:    udpConn,
-			Name:    name,
-		}, nil
 	}
+	return &ConnectionHandler{
+		address: udpAddr,
+		conn:    udpConn,
+		Name:    name,
+	}, nil
 }
 
 func startListening(address string) (*net.UDPAddr, *net.UDPConn, error) {

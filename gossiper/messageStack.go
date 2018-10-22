@@ -44,7 +44,7 @@ func (stack *MessageStack) CompareMessage(origin string, id uint32) string {
 	return ""
 }
 
-// GetMessage func
+// GetRumorMessage func
 func (stack *MessageStack) GetRumorMessage(origin string, id uint32) *data.RumorMessage {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
@@ -85,7 +85,8 @@ func (stack *MessageStack) PrintStack() {
 		logger.Log(fmt.Sprintf("Sender <%v>, last message %v", address, stack.Messages[address]))
 	}
 }
-
+// GetStackMap to get a map 
+// with latest ids saved from each origin
 func (stack *MessageStack) GetStackMap() map[string]uint32 {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
