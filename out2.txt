@@ -1,0 +1,36 @@
+*******  Logger Created  ******
+NAME: 127.0.0.1:5001
+ADRESS: nodeB
+*******  **************  ******
+[127.0.0.1:5001/nodeB]: Starting to linten in address: 127.0.0.1:5001
+[127.0.0.1:5001/nodeB]: Running simple mode: false
+[127.0.0.1:5001/nodeB]: Starting to linten in address: 127.0.0.1:10001
+[127.0.0.1:5001/nodeB]: Listening to client in 127.0.0.1:10001
+[127.0.0.1:5001/nodeB]: Starting Entropy timer
+[127.0.0.1:5001/nodeB]: Starting Entropy timer
+[127.0.0.1:5001/nodeB]: Stopped StartEntropyTimer, all peers where notified
+[127.0.0.1:5001/nodeB]: Sending packet STATUS to <127.0.0.1:5000>
+&{<nil> <nil> 0xc000108000}
+[127.0.0.1:5001/nodeB]: Peer packet received: RUMOR
+RUMOR origin nodeA from 127.0.0.1:5000 ID 1 contents Hello 
+PEERS 127.0.0.1:5000
+[127.0.0.1:5001/nodeB]: Received new message, appending...
+[127.0.0.1:5001/nodeB]: Message appended to stack Origin:nodeA ID:1
+[127.0.0.1:5001/nodeB]: Sending packet STATUS to <127.0.0.1:5000>
+&{<nil> <nil> 0xc0000c61a0}
+[127.0.0.1:5001/nodeB]: Peer packet received: RUMOR
+RUMOR origin nodeA from 127.0.0.1:5000 ID 2 contents Hello 
+PEERS 127.0.0.1:5000
+[127.0.0.1:5001/nodeB]: Comparing messages 1/2
+[127.0.0.1:5001/nodeB]: Received new message, appending...
+[127.0.0.1:5001/nodeB]: Message appended to stack Origin:nodeA ID:2
+[127.0.0.1:5001/nodeB]: Sending packet STATUS to <127.0.0.1:5000>
+&{<nil> <nil> 0xc0000c6300}
+[127.0.0.1:5001/nodeB]: Peer packet received: RUMOR
+RUMOR origin nodeA from 127.0.0.1:5000 ID 3 contents Hello 
+PEERS 127.0.0.1:5000
+[127.0.0.1:5001/nodeB]: Comparing messages 2/3
+[127.0.0.1:5001/nodeB]: Received new message, appending...
+[127.0.0.1:5001/nodeB]: Message appended to stack Origin:nodeA ID:3
+[127.0.0.1:5001/nodeB]: Sending packet STATUS to <127.0.0.1:5000>
+&{<nil> <nil> 0xc0000c6460}

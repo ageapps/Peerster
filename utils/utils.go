@@ -3,67 +3,61 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-// GossipAddress struct
-type GossipAddress struct {
+// Status struct
+type Status struct {
+	IsMongering   bool
+	StatusChannel chan PeerAddress
+	mux           sync.Mutex
+}
+
+// PeerAddress struct
+type PeerAddress struct {
 	IP   net.IP
 	Port int64
 }
 
-// PeerAddreses struct
-type PeerAddreses struct {
-	Addresses []GossipAddress
+// PeerAddresses struct
+type PeerAddresses struct {
+	Addresses []PeerAddress
+	mux       sync.Mutex
 }
 
-// SimpleMessage struct
-type SimpleMessage struct {
-	OriginalName  string
-	RelayPeerAddr string
-	Contents      string
+// GetPeerAddress returns a PeerAdress
+// from an string
+func GetPeerAddress(value string) (PeerAddress, error) {
+	var address PeerAddress
+	return address, address.Set(value)
 }
 
-// GossipPacket struct
-type GossipPacket struct {
-	Simple *SimpleMessage
-}
-
-// Message to send
-type Message struct {
-	Text string
-}
-
-// NewSimpleMessage create
-func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
-	return &SimpleMessage{
-		OriginalName:  ogname,
-		RelayPeerAddr: relay,
-		Contents:      msg,
-	}
-}
-
-func (address *GossipAddress) String() string {
+func (address *PeerAddress) String() string {
 	return fmt.Sprint(address.IP.String(), ":", address.Port)
 }
 
-// Set GossipAddress from string
-func (address *GossipAddress) Set(value string) error {
+// Set PeerAddress from string
+func (address *PeerAddress) Set(value string) error {
 	ipPortStr := strings.Split(value, ":")
 	if parsedIP := net.ParseIP(ipPortStr[0]); parsedIP == nil {
 		return errors.New("IP was not parsed correctly")
 	} else if parsedPort, err := strconv.ParseInt(ipPortStr[1], 10, 0); err != nil {
 		return err
 	} else {
-		ad := GossipAddress{IP: parsedIP, Port: parsedPort}
+		ad := PeerAddress{IP: parsedIP, Port: parsedPort}
 		*address = ad
 	}
 	return nil
 }
 
-func (peers *PeerAddreses) String() string {
+func (peers *PeerAddresses) String() string {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+
 	var s []string
 	for _, peer := range peers.Addresses {
 		s = append(s, peer.String())
@@ -71,16 +65,47 @@ func (peers *PeerAddreses) String() string {
 	return strings.Join(s, ",")
 }
 
+func (peers *PeerAddresses) GetAdresses() []PeerAddress {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	return peers.Addresses
+}
+
+func (peers *PeerAddresses) appendPeers(adress PeerAddress) {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	peers.Addresses = append(peers.Addresses, adress)
+}
+
 // Set PeerAddreses from string
-func (peers *PeerAddreses) Set(value string) error {
+func (peers *PeerAddresses) Set(value string) error {
+
 	adresses := strings.Split(value, ",")
 	for _, item := range adresses {
-		var adress GossipAddress
+		var adress PeerAddress
 		if err := adress.Set(item); err != nil {
 			return err
 		} else if !strings.Contains(peers.String(), item) {
-			peers.Addresses = append(peers.Addresses, adress)
+			peers.appendPeers(adress)
 		}
 	}
 	return nil
+}
+
+// GetRandomPeer func
+func (peers *PeerAddresses) GetRandomPeer(usedPeers map[string]bool) *PeerAddress {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+
+	peerNr := len(peers.Addresses)
+	if len(usedPeers) >= peerNr {
+		return nil
+	}
+	for {
+		index := rand.Int() % peerNr
+		peerAddress := peers.Addresses[index].String()
+		if _, ok := usedPeers[peerAddress]; !ok {
+			return &peers.Addresses[index]
+		}
+	}
 }
