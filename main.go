@@ -16,9 +16,9 @@ func main() {
 	// Setup flags with this sintax
 	// gossiper -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001,127.0.0.1:5002 -simple
 	// TO TEST
-	// go run main.go -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001 -simple
-	// go run main.go -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5002 -simple
-	// go run main.go -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 -simple
+	// go run main.go -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001
+	// go run main.go -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5002
+	// go run main.go -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 
 	var peers = utils.PeerAddresses{}
 	var gossipAddr = utils.PeerAddress{IP: net.ParseIP("127.0.0.1"), Port: 5000}
 	var UIPort = flag.Int("UIPort", 10000, "Define the port to which the client will connect")

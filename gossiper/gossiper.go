@@ -83,7 +83,7 @@ func (gossiper *Gossiper) ListenToClients(port int) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			gossiper.handleClientMessage(msg)
+			go gossiper.handleClientMessage(msg)
 		}
 	}
 }
@@ -99,7 +99,7 @@ func (gossiper *Gossiper) handleClientMessage(msg *data.Message) {
 		id := gossiper.counter.Increment()
 		rumorMessage := data.NewRumorMessage(gossiper.Name, id, msg.Text)
 		gossiper.messageStack.AddMessage(*rumorMessage)
-		gossiper.mongerMessage(rumorMessage)
+		gossiper.mongerMessage(rumorMessage, "")
 	}
 
 }
@@ -119,7 +119,7 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, origin str
 	case data.PACKET_RUMOR:
 		logger.LogRumor(*packet.Rumor, origin)
 		logger.LogPeers(gossiper.peers.String())
-		gossiper.handleRumorMessage(*packet.Rumor, origin)
+		gossiper.handleRumorMessage(packet.Rumor, origin)
 	case data.PACKET_SIMPLE:
 		logger.LogSimple(*packet.Simple)
 		logger.LogPeers(gossiper.peers.String())
@@ -146,7 +146,7 @@ func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, from stri
 	gossiper.peerConection.broadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, msg.RelayPeerAddr)
 }
 
-func (gossiper *Gossiper) handleRumorMessage(msg data.RumorMessage, from string) {
+func (gossiper *Gossiper) handleRumorMessage(msg *data.RumorMessage, from string) {
 	if gossiper.messageStack.CompareMessage(msg.Origin, msg.ID) == NEW_MESSAGE {
 		logger.Log("Received new message, appending...")
 		// If I get own messages that i didn´t
@@ -154,7 +154,8 @@ func (gossiper *Gossiper) handleRumorMessage(msg data.RumorMessage, from string)
 		if msg.Origin == gossiper.Name {
 			gossiper.counter.SetValue(msg.ID)
 		}
-		gossiper.messageStack.AddMessage(msg)
+		gossiper.messageStack.AddMessage(*msg)
+		gossiper.mongerMessage(msg, from)
 	}
 	gossiper.sendStatusMessage(from)
 }
@@ -174,19 +175,34 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, from strin
 			break
 		}
 	}
+	logger.LogStatus(*msg, from)
+	logger.LogPeers(gossiper.peers.String())
+	inSync := true
 	for _, status := range msg.Want {
-		logger.LogStatus(status, from)
-		logger.LogPeers(gossiper.peers.String())
-		switch gossiper.messageStack.CompareMessage(status.Identifier, uint32(status.NextID-1)) {
+		messageStatus := gossiper.messageStack.CompareMessage(status.Identifier, uint32(status.NextID-1))
+
+		switch messageStatus {
 		case NEW_MESSAGE:
 			logger.Log("Gossiper needs to update")
 			if handler != nil {
 				handler.SetSynking(true)
 			}
 			gossiper.sendStatusMessage(from)
-
+			break
 		case IN_SYNC:
-			logger.LogInSync(from)
+			logger.Log("Gossiper and Peer have same messages")
+		case OLD_MESSAGE:
+			logger.Log("Peer needs to update")
+			if handler != nil {
+				handler.SetSynking(true)
+			}
+			gossiper.sendRumrorMessage(from, status.Identifier, status.NextID)
+			break
+		}
+		inSync = inSync && messageStatus==IN_SYNC
+	}
+	if inSync{
+		logger.LogInSync(from)
 			if handler != nil {
 				handler.SetSynking(false)
 				// Flip coin
@@ -199,14 +215,6 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, from strin
 					handler.Reset()
 				}
 			}
-		case OLD_MESSAGE:
-			logger.Log("Peer needs to update")
-			if handler != nil {
-				handler.SetSynking(true)
-			}
-			gossiper.sendRumrorMessage(from, status.Identifier, status.NextID)
-			break
-		}
 	}
 }
 
@@ -216,13 +224,14 @@ func (gossiper *Gossiper) StartEntropyTimer() {
 		logger.Log("Starting Entropy timer")
 		for {
 			if len(gossiper.usedPeers) >= len(gossiper.peers.GetAdresses()) {
-				logger.Log("Entropy Timer - All peers where notified")
+				// logger.Log("Entropy Timer - All peers where notified")
 			}
-			time.Sleep(5 * time.Second)
 			if newpeer := gossiper.peers.GetRandomPeer(gossiper.usedPeers); newpeer != nil {
+				logger.Log("Entropy Timer - MESSAGE")
 				gossiper.usedPeers[newpeer.String()] = true
 				gossiper.sendStatusMessage(newpeer.String())
 			}
+			time.Sleep(1 * time.Second)
 		}
 	}()
 }
@@ -244,18 +253,18 @@ func (gossiper *Gossiper) sendRumrorMessage(destinationAdress, origin string, id
 	}
 }
 
-func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage) {
+func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string) {
 	gossiper.mux.Lock()
 	processName := fmt.Sprint(len(gossiper.monguerPocesses))
 	logger.Log("Starting monger process - " + processName)
-	monguerProcess := NewMongerHandler(processName, msg, gossiper.peerConection, gossiper.peers)
+	monguerProcess := NewMongerHandler(originPeer,processName, msg, gossiper.peerConection, gossiper.peers)
 	gossiper.monguerPocesses[processName] = monguerProcess
 	gossiper.mux.Unlock()
 	gossiper.monguerPocesses[processName].start()
 }
 
 func (gossiper *Gossiper) findMonguerHandler(origin string) *MongerHandler {
-	for _, process := range gossiper.monguerPocesses {
+	for _, process := range gossiper.getMongerProcesses() {
 		// delete inactive peer
 		if !process.IsActive() {
 			gossiper.deleteMongerProcess(process.name)
@@ -278,4 +287,9 @@ func (gossiper *Gossiper) deleteMongerProcess(name string) {
 	gossiper.mux.Lock()
 	defer gossiper.mux.Unlock()
 	delete(gossiper.monguerPocesses, name)
+}
+func (gossiper *Gossiper) getMongerProcesses() map[string]*MongerHandler{
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+	return gossiper.monguerPocesses
 }

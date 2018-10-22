@@ -45,15 +45,17 @@ type MongerHandler struct {
 }
 
 // NewMongerHandler function
-func NewMongerHandler(nameStr string, msg *data.RumorMessage, peerConection *ConnectionHandler, connectPeers *utils.PeerAddresses) *MongerHandler {
+func NewMongerHandler(currentAdress,nameStr string, msg *data.RumorMessage, peerConection *ConnectionHandler, connectPeers *utils.PeerAddresses) *MongerHandler {
 	return &MongerHandler{
 		name:                   nameStr,
 		originalMessage:        msg,
 		currentMessage:         msg,
+		currentPeer:            currentAdress,
 		active:                 false,
 		currentlySynchronicing: false,
 		connection:             peerConection,
 		peers:                  connectPeers,
+		timer:                  &time.Timer{},
 		quitChannel:            make(chan bool),
 		resetChannel:           make(chan bool),
 	}
@@ -66,16 +68,12 @@ func (handler *MongerHandler) start() {
 		for {
 			select {
 			case <-handler.resetChannel:
-				handler.mux.Lock()
 				logger.Log("Restarting monger handler - " + handler.name)
-				go handler.monguerWithPeer(true)
-				handler.mux.Unlock()
+				handler.monguerWithPeer(true)
 			case <-handler.quitChannel:
-				handler.mux.Lock()
 				logger.Log("Finishing monger handler - " + handler.name)
 				handler.timer.Stop()
 				handler.setActive(false)
-				handler.mux.Unlock()
 				return
 			case <-handler.timer.C:
 				// Flip coin
@@ -84,7 +82,7 @@ func (handler *MongerHandler) start() {
 					if !keepRumorering() {
 						handler.Stop()
 					} else {
-						go handler.monguerWithPeer(true)
+						handler.monguerWithPeer(true)
 					}
 				}
 			}
@@ -97,18 +95,25 @@ func newTimer() *time.Timer {
 }
 func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 	handler.mux.Lock()
-	handler.timer = newTimer()
-	peer := handler.peers.GetRandomPeer(usedPeers)
-	handler.currentPeer = peer.String()
-	handler.mux.Unlock()
-	logger.Log(fmt.Sprint("Monguering with peer: ", peer.String()))
-	packet := &data.GossipPacket{Rumor: handler.getMonguerMessage()}
-	if !flipped {
-		logger.LogMonguer(peer.String())
-	} else {
-		logger.LogCoin(peer.String())
+	var usedPeers = make(map[string]bool)
+	if handler.currentPeer != "" && len(handler.peers.Addresses) > 1{
+		usedPeers[handler.currentPeer]=true
 	}
-	go handler.connection.sendPacketToPeer(peer.String(), packet)
+	if peer := handler.peers.GetRandomPeer(usedPeers); peer != nil{
+		handler.timer = newTimer()
+		handler.currentPeer = peer.String()
+		handler.mux.Unlock()
+		logger.Log(fmt.Sprint("Monguering with peer: ", peer.String()))
+		packet := &data.GossipPacket{Rumor: handler.getMonguerMessage()}
+		if !flipped {
+			logger.LogMonguer(peer.String())
+		} else {
+			logger.LogCoin(peer.String())
+		}
+		go handler.connection.sendPacketToPeer(peer.String(), packet)
+	} else {
+		logger.Log(fmt.Sprint("No peers to monger with"))
+	}
 }
 
 func (handler *MongerHandler) Stop() {
@@ -165,22 +170,8 @@ func (handler *MongerHandler) setActive(value bool) {
 	handler.active = value
 }
 
-//SetPendingMessage function
-func (handler *MongerHandler) SetPendingMessage(address string, id uint32) string {
-	handler.mux.Lock()
-	defer handler.mux.Unlock()
-	//handler.pendingMessages[address] = id
-	return address
-}
-
-//ConfirmPendingMessage function
-func (handler *MongerHandler) ConfirmPendingMessage(address string, id uint32) {
-	handler.mux.Lock()
-	defer handler.mux.Unlock()
-	// if handler.pendingMessages[address] < id {
-	// 	logger.Log("Confirming message from <" + address + "> with ID: " + fmt.Sprint(handler.pendingMessages[address]))
-	// 	delete(handler.pendingMessages, address)
-	// }
+func  (handler *MongerHandler) logMonguer(msg string){
+	logger.Log(fmt.Sprintf("[MONGER-%v]%v",handler.name, msg))
 }
 
 // IsMessagePending func

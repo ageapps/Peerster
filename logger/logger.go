@@ -18,8 +18,12 @@ func LogRumor(msg data.RumorMessage, from string) {
 	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", msg.Origin, from, msg.ID, msg.Text)
 }
 
-func LogStatus(msg data.PeerStatus, from string) {
-	fmt.Printf("STATUS from %v peer %v nextID %v\n", from, msg.Identifier, msg.NextID)
+func LogStatus(msg data.StatusPacket, from string) {
+	logStr:=""
+	for _, status := range msg.Want {
+		logStr += fmt.Sprintf("peer %v nextID %v ", status.Identifier, status.NextID)
+	}
+	fmt.Printf("STATUS from %v %v\n", from, logStr)
 }
 
 func LogSimple(msg data.SimpleMessage) {
