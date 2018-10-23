@@ -15,9 +15,9 @@ type Message struct {
 
 // RumorMessage to send
 type RumorMessage struct {
-	Origin string
-	ID     uint32
-	Text   string
+	Origin string `json:"origin"`
+	ID     uint32 `json:"id"`
+	Text   string `json:"text"`
 }
 
 // PeerStatus to send
