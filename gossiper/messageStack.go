@@ -85,7 +85,8 @@ func (stack *MessageStack) PrintStack() {
 		logger.Log(fmt.Sprintf("Sender <%v>, last message %v", address, stack.Messages[address]))
 	}
 }
-// GetStackMap to get a map 
+
+// GetStackMap to get a map
 // with latest ids saved from each origin
 func (stack *MessageStack) GetStackMap() map[string]uint32 {
 	stack.mux.Lock()
@@ -97,6 +98,19 @@ func (stack *MessageStack) GetStackMap() map[string]uint32 {
 		stackMap[address] = lastID
 	}
 	return stackMap
+}
+
+// GetLatestMessages function
+// returns an array with the latest rumor messages
+func (stack *MessageStack) GetLatestMessages() *[]data.RumorMessage {
+	stack.mux.Lock()
+	defer stack.mux.Unlock()
+	var latestMessages = []data.RumorMessage{}
+	for address := range stack.Messages {
+		messages := stack.Messages[address]
+		latestMessages = append(latestMessages, messages[len(messages)-1])
+	}
+	return &latestMessages
 }
 
 func (stack *MessageStack) getStatusMessage() *data.StatusPacket {

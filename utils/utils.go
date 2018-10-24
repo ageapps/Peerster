@@ -44,7 +44,7 @@ func (address *PeerAddress) String() string {
 func (address *PeerAddress) Set(value string) error {
 	ipPortStr := strings.Split(value, ":")
 	if parsedIP := net.ParseIP(ipPortStr[0]); parsedIP == nil {
-		return errors.New("IP was not parsed correctly")
+		return errors.New(value + " IP was not parsed correctly")
 	} else if parsedPort, err := strconv.ParseInt(ipPortStr[1], 10, 0); err != nil {
 		return err
 	} else {
