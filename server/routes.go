@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// Route struct
 type Route struct {
 	Name        string
 	Method      string
@@ -20,4 +21,5 @@ var routes = Routes{
 	Route{"Messages", "POST", "/message", PostMessage},
 	Route{"Nodes", "POST", "/node", PostNode},
 	Route{"Start", "POST", "/start", Start},
+	Route{"Delete", "POST", "/delete", Delete},
 }

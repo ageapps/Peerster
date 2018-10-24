@@ -7,6 +7,7 @@
         <ul class="list-group">
           <li class="list-group-item" v-for="(peer,key) in peers" :key = "key">
           {{peer}}
+          <button v-show="removable" type="button" class="btn btn-outline-danger" @click="removePeer(key)">x</button>
           </li>
         </ul>
       </div>
@@ -18,7 +19,16 @@ export default {
   name: 'PeerList',
   props: {
     title: String,
-    peers: Array
+    peers: Array,
+    removable: {
+      type: Boolean,
+      default: false
+    }
+  },
+  methods: {
+    removePeer(index){
+      this.$emit('remove-peer',index)
+    }
   },
   // data() {
   //   return {

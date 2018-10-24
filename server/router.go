@@ -6,8 +6,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Routes arr
 type Routes []Route
 
+// NewRouter func
 func NewRouter() *mux.Router {
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -16,7 +18,6 @@ func NewRouter() *mux.Router {
 
 		handler = route.HandlerFunc
 		handler = Logger(handler, route.Name)
-
 		router.
 			Methods(route.Method).
 			Path(route.Pattern).

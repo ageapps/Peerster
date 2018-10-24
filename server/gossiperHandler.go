@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"reflect"
 
 	"github.com/ageapps/Peerster/data"
@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	serverGossiper *gossiper.Gossiper
+	serverGossiper = make(map[string]*gossiper.Gossiper)
 )
 
 // StatusResponse struct
@@ -20,57 +20,71 @@ type StatusResponse struct {
 	Name    string `json:"name"`
 }
 
-func startGossiper(name, address string, peers *utils.PeerAddresses) {
+func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	logger.CreateLogger(name, address, true)
 	newGossiper, err := gossiper.NewGossiper(address, name, false)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
+		for name, gossiper := range serverGossiper {
+			if gossiper.Address.String() == address || gossiper.Name == name {
+				return gossiper.Name
+			}
+		}
+		return ""
 	}
-	serverGossiper = newGossiper
-	serverGossiper.SetPeers(peers)
-	go serverGossiper.ListenToPeers()
-	serverGossiper.StartEntropyTimer()
+	serverGossiper[name] = newGossiper
+	serverGossiper[name].SetPeers(peers)
+	go serverGossiper[name].ListenToPeers()
+	serverGossiper[name].StartEntropyTimer()
+	return name
 }
 
-func getGossiperMessages() *[]data.RumorMessage {
+func getGossiperMessages(name string) *[]data.RumorMessage {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return nil
 	}
-	return serverGossiper.GetLatestMessages()
+	return serverGossiper[name].GetLatestMessages()
 }
 
-func getGossiperPeers() *[]string {
+func getGossiperPeers(name string) *[]string {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return nil
 	}
-	return serverGossiper.GetPeers()
+	return serverGossiper[name].GetPeers()
 }
 
-func getStatusResponse() *StatusResponse {
+func getStatusResponse(name string) *StatusResponse {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return nil
 	}
 	return &StatusResponse{
-		Name:    serverGossiper.Name,
-		Address: serverGossiper.Address.String(),
+		Name:    serverGossiper[name].Name,
+		Address: serverGossiper[name].Address.String(),
 	}
 }
 
-func addPeer(peer string) bool {
+func deleteGossiper(name string) {
+	if len(serverGossiper) > 0 {
+		serverGossiper[name].Kill()
+		// delete(serverGossiper, name)
+	}
+}
+
+func addPeer(name, peer string) bool {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return false
 	}
-	serverGossiper.AddPeer(peer)
+	serverGossiper[name].AddPeer(peer)
 	return true
 }
 
-func sendMessage(msg string) bool {
+func sendMessage(name, msg string) bool {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return false
 	}
 	newMsg := &data.Message{
 		Text: msg,
 	}
-	serverGossiper.HandleClientMessage(newMsg)
+	serverGossiper[name].HandleClientMessage(newMsg)
 	return true
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"reflect"
 
@@ -27,90 +26,88 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 // GetMessages func
 func GetMessages(w http.ResponseWriter, r *http.Request) {
-	send(&w, getGossiperMessages())
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	send(&w, getGossiperMessages(name))
 }
 
 // GetNodes func
 func GetNodes(w http.ResponseWriter, r *http.Request) {
-	send(&w, getGossiperPeers())
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	send(&w, getGossiperPeers(name))
 }
 
 // PostMessage func
 func PostMessage(w http.ResponseWriter, r *http.Request) {
-
-	var params map[string]interface{}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
-	if err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := r.Body.Close(); err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := json.Unmarshal(body, &params); err != nil {
-		sendError(&w, err)
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
 		return
 	}
 	msg, ok := params["msg"].(string)
-	if !ok || !sendMessage(msg) {
+	if !ok || !sendMessage(name, msg) {
 		sendError(&w, errors.New("Error while sending new message"))
 		return
 	}
-	send(&w, getGossiperMessages())
+	send(&w, getGossiperMessages(name))
 }
 
 // PostNode func
 func PostNode(w http.ResponseWriter, r *http.Request) {
-
-	var params map[string]interface{}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
-	if err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := r.Body.Close(); err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := json.Unmarshal(body, &params); err != nil {
-		sendError(&w, err)
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
 		return
 	}
 	peer, ok := params["node"].(string)
-	if !ok || !addPeer(peer) {
+	if !ok || !addPeer(name, peer) {
 		sendError(&w, errors.New("Error while adding new peer"))
 		return
 	}
-	send(&w, getGossiperPeers())
+	send(&w, getGossiperPeers(name))
 }
 
 // GetID func
 func GetID(w http.ResponseWriter, r *http.Request) {
-	send(&w, getStatusResponse())
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+
+	send(&w, getStatusResponse(name))
+}
+
+// Delete gossiper
+func Delete(w http.ResponseWriter, r *http.Request) {
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	deleteGossiper(name)
+	fmt.Println("SEEE")
+	sendOk(&w)
 }
 
 // Start gossiper
 func Start(w http.ResponseWriter, r *http.Request) {
 
-	var params map[string]interface{}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
-	if err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := r.Body.Close(); err != nil {
-		sendError(&w, err)
-		return
-	}
-	if err := json.Unmarshal(body, &params); err != nil {
-		sendError(&w, err)
-		return
-	}
+	params := *readBody(&w, r)
 
 	name := params["name"].(string)
 	var peers = utils.PeerAddresses{}
-	var gossipAddr = utils.PeerAddress{IP: net.ParseIP("127.0.0.1"), Port: 5000}
+	var gossipAddr = utils.PeerAddress{}
 
 	if address, ok := params["address"]; ok {
 		if err := gossipAddr.Set(address.(string)); err != nil {
@@ -124,8 +121,12 @@ func Start(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	startGossiper(name, gossipAddr.String(), &peers)
-	send(&w, getStatusResponse())
+	gossiperName := startGossiper(name, gossipAddr.String(), &peers)
+	if gossiperName == "" {
+		sendError(&w, errors.New("Error starting gossiper"))
+		return
+	}
+	send(&w, getStatusResponse(gossiperName))
 }
 
 func send(w *http.ResponseWriter, v interface{}) {
@@ -146,4 +147,29 @@ func sendOk(w *http.ResponseWriter) {
 func sendError(w *http.ResponseWriter, msg error) {
 	(*w).WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(*w, "There was an error processing the request: %v\n", msg.Error())
+}
+func readBody(w *http.ResponseWriter, r *http.Request) *map[string]interface{} {
+	var params map[string]interface{}
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		sendError(w, err)
+		return nil
+	}
+	if err := r.Body.Close(); err != nil {
+		sendError(w, err)
+		return nil
+	}
+	if err := json.Unmarshal(body, &params); err != nil {
+		sendError(w, err)
+		return nil
+	}
+	return &params
+}
+
+func getNameFromRequest(r *http.Request) (string, bool) {
+	name, ok := r.URL.Query()["name"]
+	if !ok || len(name[0]) < 1 {
+		return "", false
+	}
+	return name[0], true
 }
