@@ -96,7 +96,6 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deleteGossiper(name)
-	fmt.Println("SEEE")
 	sendOk(&w)
 }
 

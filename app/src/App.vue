@@ -132,8 +132,6 @@ export default {
     },
     deletePeer(){
       this.loading = true;
-      clearInterval(this.messageTimerID);
-      clearInterval(this.peerTimerID);
       var params = {
         name: this.name,
       }
@@ -141,10 +139,7 @@ export default {
       axios.post(BACKEND_URL+"/delete", params)
       .then((response)  =>  {
         console.log(response)
-        this.peers = []
-        this.name = ""
-        this.address = ""
-        this.started = false
+        this.exit()
       }, (error)  =>  {
         console.log(error)
         this.loading = false;
@@ -181,6 +176,7 @@ export default {
         this.messages = response.data;
       }, (error)  =>  {
         this.loading = false;
+        this.exit()
         this.showAlert(error.message);
         return
       });    
@@ -198,9 +194,19 @@ export default {
         this.nodes = response.data;
       }, (error)  =>  {
         this.loading = false;
+        this.exit()
         this.showAlert(error.message);
         return
       });    
+    },
+    exit(){
+        clearInterval(this.messageTimerID);
+        clearInterval(this.peerTimerID);
+        this.peers = []
+        this.messages = []
+        this.name = ""
+        this.address = ""
+        this.started = false
     }
   }
 }

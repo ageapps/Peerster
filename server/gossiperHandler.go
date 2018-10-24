@@ -25,8 +25,10 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	newGossiper, err := gossiper.NewGossiper(address, name, false)
 	if err != nil {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
-		for name, gossiper := range serverGossiper {
+		for _, gossiper := range serverGossiper {
 			if gossiper.Address.String() == address || gossiper.Name == name {
+				logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", gossiper.Name, gossiper.Address))
+				logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", name, address))
 				return gossiper.Name
 			}
 		}
@@ -65,8 +67,8 @@ func getStatusResponse(name string) *StatusResponse {
 
 func deleteGossiper(name string) {
 	if len(serverGossiper) > 0 {
-		serverGossiper[name].Kill()
-		// delete(serverGossiper, name)
+		go serverGossiper[name].Kill()
+		delete(serverGossiper, name)
 	}
 }
 
