@@ -13,7 +13,7 @@ type Route struct {
 }
 
 var routes = Routes{
-	Route{"Index", "GET", "/", Index},
+	// Route{"Index", "GET", "/", Index},
 	Route{"Messages", "GET", "/message", GetMessages},
 	Route{"Nodes", "GET", "/node", GetNodes},
 	Route{"ID", "GET", "/id", GetID},
