@@ -54,6 +54,9 @@ func NewGossiper(addressStr, name string, simple bool) (*Gossiper, error) {
 
 // Kill func
 func (gossiper *Gossiper) Kill() {
+	if gossiper == nil {
+		return
+	}
 	logger.Log("Finishing Gossiper " + gossiper.Name)
 	for _, process := range gossiper.getMongerProcesses() {
 		process.Stop()

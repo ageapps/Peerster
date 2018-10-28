@@ -3,6 +3,8 @@ Peerster is a project fully written in `Go` that aims to create a full enviromen
 
 Peerster is part of the practical projects from the subject [Decentralized Systems Engineering](http://edu.epfl.ch/coursebook/en/decentralized-systems-engineering-CS-438)
 
+![](./art/app.gif)
+
 ## Gossiping in Peerster
 
 Gossip protocols are distributed exchange protocols for robust information exchange​,
