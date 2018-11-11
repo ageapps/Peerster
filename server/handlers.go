@@ -34,6 +34,26 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	send(&w, getGossiperMessages(name))
 }
 
+// GetPrivateMessages func
+func GetPrivateMessages(w http.ResponseWriter, r *http.Request) {
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	send(&w, getGossiperPrivateMessages(name))
+}
+
+// GetRoutes func
+func GetRoutes(w http.ResponseWriter, r *http.Request) {
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	send(&w, getGossiperRoutes(name))
+}
+
 // GetNodes func
 func GetNodes(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
@@ -54,6 +74,27 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, ok := params["msg"].(string)
 	if !ok || !sendMessage(name, msg) {
+		sendError(&w, errors.New("Error while sending new message"))
+		return
+	}
+	send(&w, getGossiperMessages(name))
+}
+
+// PostPrivateMessage func
+func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	dest, ok := params["destination"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no destination requested"))
+		return
+	}
+	msg, ok := params["msg"].(string)
+	if !ok || !sendPrivateMessage(name, dest, msg) {
 		sendError(&w, errors.New("Error while sending new message"))
 		return
 	}

@@ -5,10 +5,10 @@ import (
 	"log"
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/ageapps/Peerster/data"
 	"github.com/ageapps/Peerster/logger"
+	"github.com/ageapps/Peerster/router"
 	"github.com/ageapps/Peerster/utils"
 )
 
@@ -20,9 +20,12 @@ type Gossiper struct {
 	Address         utils.PeerAddress
 	simpleMode      bool
 	peers           *utils.PeerAddresses
-	messageStack    MessageStack
+	rumorStack      RumorStack
+	privateStack    PrivateStack
+	router          *router.Router
 	monguerPocesses map[string]*MongerHandler
-	counter         *utils.Counter // [name] adress
+	rumorCounter    *utils.Counter // [name] adress
+	privateCounter  *utils.Counter // [name] adress
 	mux             sync.Mutex
 	usedPeers       map[string]bool
 }
@@ -31,23 +34,26 @@ type Gossiper struct {
 func NewGossiper(addressStr, name string, simple bool) (*Gossiper, error) {
 	address, err1 := utils.GetPeerAddress(addressStr)
 	connection, err2 := NewConnectionHandler(addressStr, name)
-	logger.Log(fmt.Sprint("Running simple mode: ", simple))
-
 	switch {
 	case err1 != nil:
 		return nil, err1
 	case err2 != nil:
 		return nil, err2
 	}
+	logger.Log(fmt.Sprint("Running simple mode: ", simple))
+
 	return &Gossiper{
 		peerConection:   connection,
 		Name:            name,
 		Address:         address,
 		simpleMode:      simple,
 		peers:           &utils.PeerAddresses{},
-		messageStack:    MessageStack{Messages: make(map[string][]data.RumorMessage)},
+		rumorStack:      RumorStack{Messages: make(map[string][]data.RumorMessage)},
+		privateStack:    PrivateStack{Messages: make(map[string][]data.PrivateMessage)},
+		router:          router.NewRouter(),
 		monguerPocesses: make(map[string]*MongerHandler),
-		counter:         utils.NewCounter(uint32(0)),
+		rumorCounter:    utils.NewCounter(uint32(0)),
+		privateCounter:  utils.NewCounter(uint32(0)),
 		usedPeers:       make(map[string]bool),
 	}, nil
 }
@@ -118,10 +124,16 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 	if gossiper.simpleMode {
 		newMsg := data.NewSimpleMessage(gossiper.Name, msg.Text, gossiper.Address.String())
 		gossiper.peerConection.broadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, gossiper.Address.String())
+	} else if msg.IsPrivate() {
+		// Message is private
+		id := gossiper.privateCounter.Increment()
+		privateMessage := data.NewPrivateMessage(gossiper.Name, id, msg.Destination, msg.Text, uint32(10))
+		gossiper.privateStack.AddMessage(*privateMessage)
+		gossiper.sendPrivateMessage(privateMessage)
 	} else {
-		id := gossiper.counter.Increment()
+		id := gossiper.rumorCounter.Increment()
 		rumorMessage := data.NewRumorMessage(gossiper.Name, id, msg.Text)
-		gossiper.messageStack.AddMessage(*rumorMessage)
+		gossiper.rumorStack.AddMessage(*rumorMessage)
 		gossiper.mongerMessage(rumorMessage, "")
 	}
 
@@ -140,9 +152,9 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, origin str
 	case data.PACKET_STATUS:
 		gossiper.handleStatusMessage(packet.Status, origin)
 	case data.PACKET_RUMOR:
-		logger.LogRumor(*packet.Rumor, origin)
-		logger.LogPeers(gossiper.peers.String())
 		gossiper.handleRumorMessage(packet.Rumor, origin)
+	case data.PACKET_PRIVATE:
+		gossiper.handlePrivateMessage(packet.Private, origin)
 	case data.PACKET_SIMPLE:
 		logger.LogSimple(*packet.Simple)
 		logger.LogPeers(gossiper.peers.String())
@@ -162,18 +174,44 @@ func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, from stri
 	gossiper.peerConection.broadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, msg.RelayPeerAddr)
 }
 
+func (gossiper *Gossiper) handlePrivateMessage(msg *data.PrivateMessage, from string) {
+	if msg.Destination == gossiper.Name {
+		gossiper.privateStack.AddMessage(*msg)
+		logger.LogPrivate(*msg)
+		return
+	}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		gossiper.sendPrivateMessage(msg)
+	}
+}
+
 func (gossiper *Gossiper) handleRumorMessage(msg *data.RumorMessage, from string) {
-	if gossiper.messageStack.CompareMessage(msg.Origin, msg.ID) == NEW_MESSAGE {
-		logger.Log("Received new message, appending...")
-		// If I get own messages that i didn´t
-		// have, set internal counter
-		if msg.Origin == gossiper.Name {
-			gossiper.counter.SetValue(msg.ID)
+	isRouteRumor := msg.IsRouteRumor()
+	if !isRouteRumor {
+		logger.LogRumor(*msg, from)
+		logger.LogPeers(gossiper.peers.String())
+	}
+	msgStatus := gossiper.rumorStack.CompareMessage(msg.Origin, msg.ID)
+
+	if msgStatus == NEW_MESSAGE {
+		newEntry := gossiper.router.SetEntry(msg.Origin, from)
+		if isRouteRumor {
+			logger.Log(fmt.Sprintf("Received ROUTE RUMOR - new:%v", newEntry))
+			return
 		}
+		// If I get own messages that i didn´t
+		// have, set internal rumorCounter
+		if msg.Origin == gossiper.Name {
+			gossiper.rumorCounter.SetValue(msg.ID)
+		}
+		logger.Log("Received new rumor message, appending...")
 		gossiper.resetusedPeers()
-		gossiper.messageStack.AddMessage(*msg)
+
+		gossiper.rumorStack.AddMessage(*msg)
 		gossiper.mongerMessage(msg, from)
 	}
+
 	gossiper.sendStatusMessage(from)
 }
 
@@ -181,20 +219,22 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, from strin
 	handler := gossiper.findMonguerHandler(from)
 	logger.Log(fmt.Sprint("Handler found:", handler != nil))
 
-	if len(msg.Want) < len(*gossiper.messageStack.getMessageStack()) {
-		if handler != nil {
-			handler.SetSynking(true)
-		}
+	if len(msg.Want) < len(*gossiper.rumorStack.getRumorStack()) {
+
 		// check messages that i have from other peers that aren´t in the status message
-		for origin, messages := range *gossiper.messageStack.getMessageStack() {
+		for origin, messages := range *gossiper.rumorStack.getRumorStack() {
 			firstMessageID := messages[0].ID
 			found := false
 			for _, status := range msg.Want {
 				if status.Identifier == origin {
 					found = true
+					break
 				}
 			}
 			if !found {
+				if handler != nil {
+					handler.SetSynking(true)
+				}
 				logger.Log(fmt.Sprintf("Peer needs to update Origin:%v - ID:%v", origin, firstMessageID))
 				gossiper.sendRumrorMessage(from, origin, firstMessageID)
 				return
@@ -206,20 +246,20 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, from strin
 	inSync := true
 
 	for _, status := range msg.Want {
-		messageStatus := gossiper.messageStack.CompareMessage(status.Identifier, uint32(status.NextID-1))
+		messageStatus := gossiper.rumorStack.CompareMessage(status.Identifier, uint32(status.NextID-1))
 
 		switch messageStatus {
 		case NEW_MESSAGE:
-			logger.Log("Gossiper needs to update")
+			// logger.Log("Gossiper needs to update")
 			if handler != nil {
 				handler.SetSynking(true)
 			}
 			gossiper.sendStatusMessage(from)
 			break
 		case IN_SYNC:
-			logger.Log("Gossiper and Peer have same messages")
+			// logger.Log("Gossiper and Peer have same messages")
 		case OLD_MESSAGE:
-			logger.Log("Peer needs to update")
+			// logger.Log("Peer needs to update")
 			if handler != nil {
 				handler.SetSynking(true)
 			}
@@ -255,26 +295,11 @@ func (gossiper *Gossiper) getUsedPeers() map[string]bool {
 	return gossiper.usedPeers
 }
 
-// StartEntropyTimer function
-func (gossiper *Gossiper) StartEntropyTimer() {
-	go func() {
-		logger.Log("Starting Entropy timer")
-		for {
-			if len(gossiper.getUsedPeers()) >= len(gossiper.peers.GetAdresses()) {
-				// logger.Log("Entropy Timer - All peers where notified")
-			}
-			if newpeer := gossiper.peers.GetRandomPeer(gossiper.usedPeers); newpeer != nil {
-				logger.Log("Entropy Timer - MESSAGE")
-				gossiper.usedPeers[newpeer.String()] = true
-				gossiper.sendStatusMessage(newpeer.String())
-			}
-			time.Sleep(1 * time.Second)
-		}
-	}()
-}
-
 func (gossiper *Gossiper) GetLatestMessages() *[]data.RumorMessage {
-	return gossiper.messageStack.GetLatestMessages()
+	return gossiper.rumorStack.GetLatestMessages()
+}
+func (gossiper *Gossiper) GetPrivateMessages() *map[string][]data.PrivateMessage {
+	return gossiper.privateStack.getPrivateStack()
 }
 
 func (gossiper *Gossiper) GetPeers() *[]string {
@@ -285,20 +310,41 @@ func (gossiper *Gossiper) GetPeers() *[]string {
 	return &peersArr
 }
 
+func (gossiper *Gossiper) GetRoutes() *router.RoutingTable {
+	return gossiper.router.GetTable()
+}
+
 func (gossiper *Gossiper) sendStatusMessage(destination string) {
-	var message = gossiper.messageStack.getStatusMessage()
+	var message = gossiper.rumorStack.getStatusMessage()
 	packet := &data.GossipPacket{Status: message}
 	go gossiper.peerConection.sendPacketToPeer(destination, packet)
 }
 
 func (gossiper *Gossiper) sendRumrorMessage(destinationAdress, origin string, id uint32) {
-	if message := gossiper.messageStack.GetRumorMessage(origin, id); message != nil {
+	if message := gossiper.rumorStack.GetRumorMessage(origin, id); message != nil {
 		packet := &data.GossipPacket{Rumor: message}
 		logger.Log(fmt.Sprintf("Sending RUMOR ID:%v", message.ID))
 		go gossiper.peerConection.sendPacketToPeer(destinationAdress, packet)
 	} else {
 		logger.Log("Message to send not found")
 	}
+}
+
+func (gossiper *Gossiper) sendRouteRumorMessage(destinationAdress string) {
+	latestMsgID := gossiper.rumorCounter.GetValue() + 1
+	routeRumorMessage := data.NewRumorMessage(gossiper.Name, latestMsgID, "")
+	packet := &data.GossipPacket{Rumor: routeRumorMessage}
+	logger.Log(fmt.Sprintf("Sending ROUTE RUMOR ID:%v", latestMsgID))
+	go gossiper.peerConection.sendPacketToPeer(destinationAdress, packet)
+}
+
+func (gossiper *Gossiper) sendPrivateMessage(msg *data.PrivateMessage) {
+	packet := &data.GossipPacket{Private: msg}
+	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
+		logger.Log(fmt.Sprintf("Sending PRIVATE Dest:%v", msg.Destination))
+		go gossiper.peerConection.sendPacketToPeer(destinationAdress.String(), packet)
+	}
+
 }
 
 func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string) {

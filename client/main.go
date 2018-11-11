@@ -16,10 +16,11 @@ var (
 	serverAdress = utils.PeerAddress{IP: net.ParseIP("127.0.0.1")}
 )
 
-func sendMessage(msg string) error {
+func sendMessage(msg, dest string) error {
 	fmt.Println("Sending <" + msg + "> to address " + serverAdress.String())
 	tmsg := &data.Message{
 		Text: msg,
+		Destination: dest,
 	}
 	buf, err1 := protobuf.Encode(tmsg)
 	conn, err2 := net.Dial(protocol, serverAdress.String())
@@ -37,12 +38,13 @@ func sendMessage(msg string) error {
 func main() {
 
 	// Setup flags with this sintax
-	// ./client -UIPort=10000 -msg=Hello
+	// go run . -UIPort=10000 -msg=Hello
 	var UIPort = flag.Int("UIPort", 10000, "Port for the UI client")
+	var dest = flag.String("dest", "", "Destination for the private message")
 	var msg = flag.String("msg", "", "Message to be sent")
 	flag.Parse()
 	serverAdress.Port = int64(*UIPort)
-	if e := sendMessage(*msg); e != nil {
+	if e := sendMessage(*msg, *dest); e != nil {
 		log.Fatal(e)
 	}
 

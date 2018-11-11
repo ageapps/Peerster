@@ -30,3 +30,9 @@ func (counter *Counter) SetValue(value uint32) {
 	defer counter.mux.Unlock()
 	counter.value = value
 }
+//GetValue function
+func (counter *Counter) GetValue() uint32 {
+	counter.mux.Lock()
+	defer counter.mux.Unlock()
+	return counter.value
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -9,9 +10,12 @@ import (
 
 // our main function
 func main() {
+
+	var UIPort = flag.String("port", "8080", "Port for the UI client")
+	flag.Parse()
+
 	router := NewRouter()
-	port := "8080"
-	log.Println("Listining on port: " + port)
+	log.Println("Listining on port: " + *UIPort)
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
@@ -19,5 +23,5 @@ func main() {
 
 	handler := c.Handler(router)
 
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	log.Fatal(http.ListenAndServe(":"+*UIPort, handler))
 }

@@ -14,17 +14,17 @@ const (
 	IN_SYNC     = "IN_SYNC"
 )
 
-// MessageStack struct
+// RumorStack struct
 // that contains as keys the origin
 // and as value an array of the rumor
 // messages received by that origin
-type MessageStack struct {
+type RumorStack struct {
 	Messages map[string][]data.RumorMessage
 	mux      sync.Mutex
 }
 
 // CompareMessage func
-func (stack *MessageStack) CompareMessage(origin string, id uint32) string {
+func (stack *RumorStack) CompareMessage(origin string, id uint32) string {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	messages, ok := stack.Messages[origin]
@@ -45,7 +45,7 @@ func (stack *MessageStack) CompareMessage(origin string, id uint32) string {
 }
 
 // GetRumorMessage func
-func (stack *MessageStack) GetRumorMessage(origin string, id uint32) *data.RumorMessage {
+func (stack *RumorStack) GetRumorMessage(origin string, id uint32) *data.RumorMessage {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	messages, ok := stack.Messages[origin]
@@ -61,7 +61,7 @@ func (stack *MessageStack) GetRumorMessage(origin string, id uint32) *data.Rumor
 }
 
 //AddMessage func
-func (stack *MessageStack) AddMessage(msg data.RumorMessage) {
+func (stack *RumorStack) AddMessage(msg data.RumorMessage) {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	id := msg.ID
@@ -78,7 +78,7 @@ func (stack *MessageStack) AddMessage(msg data.RumorMessage) {
 }
 
 // PrintStack func
-func (stack *MessageStack) PrintStack() {
+func (stack *RumorStack) PrintStack() {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	for address := range stack.Messages {
@@ -88,21 +88,31 @@ func (stack *MessageStack) PrintStack() {
 
 // GetStackMap to get a map
 // with latest ids saved from each origin
-func (stack *MessageStack) GetStackMap() map[string]uint32 {
+func (stack *RumorStack) GetStackMap() *map[string]uint32 {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	var stackMap = make(map[string]uint32)
-	for address := range stack.Messages {
-		messages := stack.Messages[address]
+	for origin := range stack.Messages {
+		messages := stack.Messages[origin]
 		lastID := uint32(messages[len(messages)-1].ID)
-		stackMap[address] = lastID
+		stackMap[origin] = lastID
 	}
-	return stackMap
+	return &stackMap
 }
+
+func (stack *RumorStack) GetLatestMessageID(origin string) uint32 {
+	stack.mux.Lock()
+	defer stack.mux.Unlock()
+	messages := stack.Messages[origin]
+	lastID := uint32(messages[len(messages)-1].ID)
+	return lastID
+}
+
+
 
 // GetLatestMessages function
 // returns an array with the latest rumor messages
-func (stack *MessageStack) GetLatestMessages() *[]data.RumorMessage {
+func (stack *RumorStack) GetLatestMessages() *[]data.RumorMessage {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	var latestMessages = []data.RumorMessage{}
@@ -113,7 +123,7 @@ func (stack *MessageStack) GetLatestMessages() *[]data.RumorMessage {
 	return &latestMessages
 }
 
-func (stack *MessageStack) getStatusMessage() *data.StatusPacket {
+func (stack *RumorStack) getStatusMessage() *data.StatusPacket {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	var vector []data.PeerStatus
@@ -125,7 +135,7 @@ func (stack *MessageStack) getStatusMessage() *data.StatusPacket {
 	return data.NewStatusPacket(&vector)
 }
 
-func (stack *MessageStack) getMessageStack() *map[string][]data.RumorMessage {
+func (stack *RumorStack) getRumorStack() *map[string][]data.RumorMessage {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	return &stack.Messages
