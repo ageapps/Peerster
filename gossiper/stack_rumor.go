@@ -108,8 +108,6 @@ func (stack *RumorStack) GetLatestMessageID(origin string) uint32 {
 	return lastID
 }
 
-
-
 // GetLatestMessages function
 // returns an array with the latest rumor messages
 func (stack *RumorStack) GetLatestMessages() *[]data.RumorMessage {
