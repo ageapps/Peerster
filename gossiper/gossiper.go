@@ -95,6 +95,7 @@ func (gossiper *Gossiper) ListenToClients(port int) {
 	}
 }
 
+// HandleClientMessage handles client messages
 func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 	// logger.Log("Message received from client")
 	logger.LogClient(*msg)

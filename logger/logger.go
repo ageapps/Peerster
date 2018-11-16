@@ -8,6 +8,7 @@ import (
 	"github.com/ageapps/Peerster/data"
 )
 
+// Logger struct
 type Logger struct {
 	address string
 	name    string
@@ -19,12 +20,15 @@ var instance = Logger{
 	address: "",
 	name:    "",
 	debug:   false,
-	log:     log.New(os.Stdout, "LOG: ", log.Ltime)}
+	log:     log.New(os.Stdout, "LOG: ", log.Ltime),
+}
 
+// LogRumor func
 func LogRumor(msg data.RumorMessage, from string) {
 	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", msg.Origin, from, msg.ID, msg.Text)
 }
 
+// LogStatus func
 func LogStatus(msg data.StatusPacket, from string) {
 	logStr := ""
 	for _, status := range msg.Want {
@@ -37,6 +41,8 @@ func LogStatus(msg data.StatusPacket, from string) {
 func LogSimple(msg data.SimpleMessage) {
 	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v\n", msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
 }
+
+// LogPeers func
 func LogPeers(peers string) {
 	fmt.Println("PEERS " + peers)
 }

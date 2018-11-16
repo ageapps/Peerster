@@ -87,16 +87,12 @@ func (stack *PrivateStack) GetStackMap() *map[string]uint32 {
 	defer stack.mux.Unlock()
 	var stackMap = make(map[string]uint32)
 	for origin := range stack.Messages {
-		messages := stack.Messages[origin]
-		lastID := uint32(messages[len(messages)-1].ID)
-		stackMap[origin] = lastID
+		stackMap[origin] = stack.getLatestMessageID(origin)
 	}
 	return &stackMap
 }
 
-func (stack *PrivateStack) GetLatestMessageID(origin string) uint32 {
-	stack.mux.Lock()
-	defer stack.mux.Unlock()
+func (stack *PrivateStack) getLatestMessageID(origin string) uint32 {
 	messages := stack.Messages[origin]
 	lastID := uint32(messages[len(messages)-1].ID)
 	return lastID

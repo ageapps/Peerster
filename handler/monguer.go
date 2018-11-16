@@ -68,6 +68,7 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 	}
 }
 
+// Start monguering process
 func (handler *MongerHandler) Start() {
 	go func() {
 		go handler.setActive(true)
@@ -98,10 +99,12 @@ func (handler *MongerHandler) Start() {
 		}
 	}()
 }
+
 func newTimer() *time.Timer {
 	// logger.Log("Launching new timer")
 	return time.NewTimer(1 * time.Second)
 }
+
 func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 	if peer := handler.GetPeers().GetRandomPeer(*handler.usedPeers); peer != nil {
 		handler.timer = newTimer()

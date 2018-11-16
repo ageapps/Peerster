@@ -9,9 +9,12 @@ import (
 )
 
 const (
+	// OLD_MESSAGE type
 	OLD_MESSAGE = "OLD_MESSAGE"
+	// NEW_MESSAGE type
 	NEW_MESSAGE = "NEW_MESSAGE"
-	IN_SYNC     = "IN_SYNC"
+	// IN_SYNC type
+	IN_SYNC = "IN_SYNC"
 )
 
 // RumorStack struct
@@ -93,14 +96,12 @@ func (stack *RumorStack) GetStackMap() *map[string]uint32 {
 	defer stack.mux.Unlock()
 	var stackMap = make(map[string]uint32)
 	for origin := range stack.Messages {
-		messages := stack.Messages[origin]
-		lastID := uint32(messages[len(messages)-1].ID)
-		stackMap[origin] = lastID
+		stackMap[origin] = stack.getLatestMessageID(origin)
 	}
 	return &stackMap
 }
 
-func (stack *RumorStack) GetLatestMessageID(origin string) uint32 {
+func (stack *RumorStack) getLatestMessageID(origin string) uint32 {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	messages := stack.Messages[origin]
@@ -137,4 +138,22 @@ func (stack *RumorStack) getRumorStack() *map[string][]data.RumorMessage {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	return &stack.Messages
+}
+
+func (stack *RumorStack) getFirstMissingMessage(comparedMessages *[]data.PeerStatus) *data.RumorMessage {
+	for origin, messages := range *stack.getRumorStack() {
+		firstMessage := messages[0]
+		found := false
+		for _, status := range *comparedMessages {
+			if status.Identifier == origin {
+				found = true
+				break
+			}
+		}
+		if !found {
+			logger.Log(fmt.Sprintf("Peer needs to update Origin:%v - ID:%v", origin, firstMessage.ID))
+			return &firstMessage
+		}
+	}
+	return nil
 }

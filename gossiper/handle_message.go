@@ -87,27 +87,17 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 		}
 		return
 	}
-	if len(msg.Want) < len(*gossiper.rumorStack.getRumorStack()) {
 
+	if handler != nil {
+		handler.SetSynking(true)
+	}
+	if len(msg.Want) < len(*gossiper.rumorStack.getRumorStack()) {
 		// check messages that i have from other peers that aren´t in the status message
-		for origin, messages := range *gossiper.rumorStack.getRumorStack() {
-			firstMessageID := messages[0].ID
-			found := false
-			for _, status := range msg.Want {
-				if status.Identifier == origin {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if handler != nil {
-					handler.SetSynking(true)
-				}
-				logger.Log(fmt.Sprintf("Peer needs to update Origin:%v - ID:%v", origin, firstMessageID))
-				gossiper.sendRumrorMessage(address, origin, firstMessageID)
-				return
-			}
+		missingMessage := gossiper.rumorStack.getFirstMissingMessage(&msg.Want)
+		if missingMessage != nil {
+			gossiper.sendRumrorMessage(address, missingMessage.Origin, missingMessage.ID)
 		}
+		return
 	}
 	logger.LogStatus(*msg, address)
 	logger.LogPeers(gossiper.peers.String())
@@ -119,18 +109,12 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 		switch messageStatus {
 		case NEW_MESSAGE:
 			// logger.Log("Gossiper needs to update")
-			if handler != nil {
-				handler.SetSynking(true)
-			}
 			gossiper.sendStatusMessage(address, "")
 			break
 		case IN_SYNC:
 			// logger.Log("Gossiper and Peer have same messages")
 		case OLD_MESSAGE:
 			// logger.Log("Peer needs to update")
-			if handler != nil {
-				handler.SetSynking(true)
-			}
 			gossiper.sendRumrorMessage(address, status.Identifier, status.NextID)
 			break
 		}

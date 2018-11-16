@@ -25,10 +25,12 @@ func NewRouter() *Router {
 	}
 }
 
+// GetTable returns routing table
 func (router *Router) GetTable() *RoutingTable {
 	return &router.table
 }
 
+// SetEntry sets new entry
 func (router *Router) SetEntry(origin, address string) bool {
 	router.mux.Lock()
 	defer router.mux.Unlock()
@@ -42,24 +44,22 @@ func (router *Router) SetEntry(origin, address string) bool {
 		if err != nil {
 			logger.Log("Error updating router entry")
 			return false
-		} else {
-			router.addEntry(origin, &newEntry)
 		}
+		router.addEntry(origin, &newEntry)
 	}
 	return isNew
 }
 
-func (router *Router) EntryExists(origin string) (isNew bool) {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+func (router *Router) entryExists(origin string) (isNew bool) {
 	_, ok := router.table[origin]
 	return ok
 }
+
+// AddIfNotExists adds entry if there's none for the origin address
 func (router *Router) AddIfNotExists(origin, address string) {
 	router.mux.Lock()
 	defer router.mux.Unlock()
-	_, ok := router.table[origin]
-	if !ok {
+	if !router.entryExists(origin) {
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)
 		if err != nil {
@@ -76,6 +76,7 @@ func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {
 	logger.LogDSDV(origin, entry.String())
 }
 
+// GetDestination returns de addess gibben an identifier
 func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, found bool) {
 	router.mux.Lock()
 	defer router.mux.Unlock()

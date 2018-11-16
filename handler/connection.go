@@ -32,12 +32,15 @@ func NewConnectionHandler(address, name string) (*ConnectionHandler, error) {
 	}, nil
 }
 
+// Close connection
 func (handler *ConnectionHandler) Close() {
 	if err := handler.conn.Close(); err != nil {
 		logger.Log(fmt.Sprintln("Error closing connection", err))
 		// log.Fatal(err1)
 	}
 }
+
+// StartListening in address
 func StartListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
 	logger.Log("Starting to listen in address: " + address)
 	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
@@ -60,6 +63,7 @@ func (handler *ConnectionHandler) BroadcastPacket(peers *utils.PeerAddresses, pa
 	}
 }
 
+// SendPacketToPeer sends packet to address
 func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.GossipPacket) error {
 	if handler.conn == nil {
 		return errors.New("No connection")
@@ -82,6 +86,7 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 	return nil
 }
 
+// ReadPacket reads and decodes packet
 func (handler *ConnectionHandler) ReadPacket(packet *data.GossipPacket) (string, error) {
 
 	if handler.conn == nil {
@@ -99,6 +104,8 @@ func (handler *ConnectionHandler) ReadPacket(packet *data.GossipPacket) (string,
 	}
 	return address.String(), nil
 }
+
+// ReadMessage reads and decodes message
 func (handler *ConnectionHandler) ReadMessage(msg *data.Message) (string, error) {
 	buffer := make([]byte, 1024)
 	_, address, err := handler.conn.ReadFromUDP(buffer)

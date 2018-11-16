@@ -36,9 +36,12 @@ type PeerStatus struct {
 	NextID     uint32
 }
 
+// IsRouteRumor check if Rumor is a route message
 func (rumor *RumorMessage) IsRouteRumor() bool {
 	return rumor.Text == ""
 }
+
+// IsPrivate check if is private message
 func (msg *Message) IsPrivate() bool {
 	return msg.Destination != ""
 }
