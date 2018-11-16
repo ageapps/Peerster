@@ -10,6 +10,7 @@ type Counter struct {
 	mux   sync.Mutex
 }
 
+// NewCounter method
 func NewCounter(initialValue uint32) *Counter {
 	return &Counter{
 		value: initialValue,
