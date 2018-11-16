@@ -27,7 +27,7 @@ func (gossiper *Gossiper) SetPeers(newPeers *utils.PeerAddresses) {
 // AddPeer func
 func (gossiper *Gossiper) AddPeer(newPeer string) {
 	gossiper.peers.Set(newPeer)
-	gossiper.sendStatusMessage(newPeer)
+	gossiper.sendStatusMessage(newPeer, "")
 }
 
 func (gossiper *Gossiper) GetLatestMessages() *[]data.RumorMessage {

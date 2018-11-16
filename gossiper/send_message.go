@@ -7,8 +7,14 @@ import (
 	"github.com/ageapps/Peerster/logger"
 )
 
-func (gossiper *Gossiper) sendStatusMessage(destination string) {
-	var message = gossiper.rumorStack.getStatusMessage()
+func (gossiper *Gossiper) sendStatusMessage(destination, nodeName string) {
+	var message *data.StatusPacket
+	if nodeName != "" {
+		message = data.NewStatusPacket(nil, nodeName)
+	} else {
+		message = gossiper.rumorStack.getStatusMessage()
+	}
+	logger.Log(fmt.Sprint("Sending STATUS route: ", nodeName != ""))
 	packet := &data.GossipPacket{Status: message}
 	gossiper.peerConection.SendPacketToPeer(destination, packet)
 }

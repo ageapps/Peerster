@@ -102,8 +102,6 @@ func (stack *PrivateStack) GetLatestMessageID(origin string) uint32 {
 	return lastID
 }
 
-
-
 // GetLatestMessages function
 // returns an array with the latest rumor messages
 func (stack *PrivateStack) GetLatestMessages() *[]data.PrivateMessage {
@@ -126,7 +124,7 @@ func (stack *PrivateStack) getStatusMessage() *data.StatusPacket {
 		peerStatus := data.PeerStatus{Identifier: address, NextID: uint32(messages[len(messages)-1].ID + 1)}
 		vector = append(vector, peerStatus)
 	}
-	return data.NewStatusPacket(&vector)
+	return data.NewStatusPacket(&vector, "")
 }
 
 func (stack *PrivateStack) getPrivateStack() *map[string][]data.PrivateMessage {

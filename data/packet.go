@@ -17,7 +17,8 @@ type GossipPacket struct {
 
 // StatusPacket to send
 type StatusPacket struct {
-	Want []PeerStatus
+	Want  []PeerStatus
+	Route string
 }
 
 // NewSimpleMessage create
@@ -30,8 +31,11 @@ func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
 }
 
 // NewStatusPacket create
-func NewStatusPacket(want *[]PeerStatus) *StatusPacket {
-	return &StatusPacket{Want: *want}
+func NewStatusPacket(want *[]PeerStatus, route string) *StatusPacket {
+	if want != nil {
+		return &StatusPacket{Want: *want}
+	}
+	return &StatusPacket{Route: route}
 }
 
 // NewRumorMessage create
@@ -42,6 +46,11 @@ func NewRumorMessage(origin string, ID uint32, text string) *RumorMessage {
 // NewPrivateMessage create
 func NewPrivateMessage(origin string, ID uint32, destination, text string, hops uint32) *PrivateMessage {
 	return &PrivateMessage{origin, ID, destination, text, hops}
+}
+
+// IsRouteStatus create
+func (status *StatusPacket) IsRouteStatus() bool {
+	return status.Route != ""
 }
 
 // GetPacketType function

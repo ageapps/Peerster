@@ -130,7 +130,7 @@ func (stack *RumorStack) getStatusMessage() *data.StatusPacket {
 		peerStatus := data.PeerStatus{Identifier: address, NextID: uint32(messages[len(messages)-1].ID + 1)}
 		vector = append(vector, peerStatus)
 	}
-	return data.NewStatusPacket(&vector)
+	return data.NewStatusPacket(&vector, "")
 }
 
 func (stack *RumorStack) getRumorStack() *map[string][]data.RumorMessage {

@@ -31,51 +31,62 @@ func (gossiper *Gossiper) handlePrivateMessage(msg *data.PrivateMessage, address
 func (gossiper *Gossiper) handleRumorMessage(msg *data.RumorMessage, address string) {
 	msgStatus := gossiper.rumorStack.CompareMessage(msg.Origin, msg.ID)
 	isRouteRumor := msg.IsRouteRumor()
-
-	if isRouteRumor && msgStatus == NEW_MESSAGE {
-		addedEntry := gossiper.router.SetEntry(msg.Origin, address)
-		logger.Log(fmt.Sprintf("Received ROUTE RUMOR - new:%v", addedEntry))
-		if msg.Origin != gossiper.Name {
-			// Broadcast route to other peers
-			packet := &data.GossipPacket{Rumor: msg}
-			gossiper.peerConection.BroadcastPacket(gossiper.peers, packet, address)
-		}
-		return
+	routeNode := ""
+	if isRouteRumor {
+		logger.Log(fmt.Sprintf("Received ROUTE RUMOR"))
+		routeNode = msg.Origin
+	} else {
+		logger.LogRumor(*msg, address)
 	}
-	logger.LogRumor(*msg, address)
 	logger.LogPeers(gossiper.peers.String())
 
-	if !gossiper.router.EntryExists(msg.Origin) {
-		gossiper.router.SetEntry(msg.Origin, address)
-	}
+	gossiper.router.AddIfNotExists(msg.Origin, address)
+
 	if msgStatus == NEW_MESSAGE {
+		gossiper.router.SetEntry(msg.Origin, address)
+
 		// If I get own messages that i didn´t
 		// have, set internal rumorCounter
-		if msg.Origin == gossiper.Name {
+		if msg.Origin == gossiper.Name && gossiper.rumorCounter.GetValue() > msg.ID {
 			gossiper.rumorCounter.SetValue(msg.ID)
+			return
 		}
 
-		// Reset used peers for timers
-		go gossiper.resetUsedPeers()
+		if !isRouteRumor {
+			// Reset used peers for timers
+			go gossiper.resetUsedPeers()
 
-		// message is new
-		// -> add it to stack
-		gossiper.rumorStack.AddMessage(*msg)
+			// message is new
+			// -> add it to stack
+			gossiper.rumorStack.AddMessage(*msg)
+		}
 		// -> acknowledge message
-		gossiper.sendStatusMessage(address)
+		gossiper.sendStatusMessage(address, routeNode)
 		// -> start monguering message
-		gossiper.mongerMessage(msg, address)
-	} else {
+		gossiper.mongerMessage(msg, address, isRouteRumor)
+	} else if !isRouteRumor {
 		// message received is not new
 		// send my status msg
-		gossiper.sendStatusMessage(address)
+		gossiper.sendStatusMessage(address, "")
 	}
 }
 
 func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address string) {
-	handler := gossiper.findMonguerHandler(address)
-	logger.Log(fmt.Sprint("Handler found:", handler != nil))
 
+	isRouteStatus := msg.IsRouteStatus()
+	handler := gossiper.findMonguerHandler(address, isRouteStatus)
+	logger.Log(fmt.Sprint("Handler found:", handler != nil))
+	logger.Log(fmt.Sprint("STATUS received Route: ", isRouteStatus))
+
+	if isRouteStatus {
+		if msg.Route != gossiper.Name {
+			gossiper.router.AddIfNotExists(msg.Route, address)
+		}
+		if handler != nil {
+			handler.Stop()
+		}
+		return
+	}
 	if len(msg.Want) < len(*gossiper.rumorStack.getRumorStack()) {
 
 		// check messages that i have from other peers that aren´t in the status message
@@ -111,7 +122,7 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 			if handler != nil {
 				handler.SetSynking(true)
 			}
-			gossiper.sendStatusMessage(address)
+			gossiper.sendStatusMessage(address, "")
 			break
 		case IN_SYNC:
 			// logger.Log("Gossiper and Peer have same messages")

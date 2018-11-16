@@ -39,7 +39,7 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	serverGossiper[name].SetPeers(peers)
 	go serverGossiper[name].ListenToPeers()
 	serverGossiper[name].StartEntropyTimer()
-	serverGossiper[name].StartRouteTimer(3)
+	serverGossiper[name].StartRouteTimer(5)
 	return name
 }
 

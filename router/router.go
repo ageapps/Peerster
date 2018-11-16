@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -41,9 +42,9 @@ func (router *Router) SetEntry(origin, address string) bool {
 		if err != nil {
 			logger.Log("Error updating router entry")
 			return false
+		} else {
+			router.addEntry(origin, &newEntry)
 		}
-		router.table[origin] = &newEntry
-		logger.LogDSDV(origin, address)
 	}
 	return isNew
 }
@@ -53,6 +54,26 @@ func (router *Router) EntryExists(origin string) (isNew bool) {
 	defer router.mux.Unlock()
 	_, ok := router.table[origin]
 	return ok
+}
+func (router *Router) AddIfNotExists(origin, address string) {
+	router.mux.Lock()
+	defer router.mux.Unlock()
+	_, ok := router.table[origin]
+	if !ok {
+		newEntry := utils.PeerAddress{}
+		err := newEntry.Set(address)
+		if err != nil {
+			logger.Log("Error updating router entry")
+		} else {
+			router.addEntry(origin, &newEntry)
+		}
+	}
+}
+
+func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {
+	logger.Log(fmt.Sprintf("Route entry appended - Origin:%v", origin))
+	router.table[origin] = entry
+	logger.LogDSDV(origin, entry.String())
 }
 
 func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, found bool) {

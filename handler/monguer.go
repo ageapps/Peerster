@@ -35,6 +35,7 @@ type MongerHandler struct {
 	currentMessage         *data.RumorMessage
 	currentPeer            string
 	active                 bool
+	routeMonguer           bool
 	currentlySynchronicing bool
 	connection             *ConnectionHandler
 	peers                  *utils.PeerAddresses
@@ -46,7 +47,7 @@ type MongerHandler struct {
 }
 
 // NewMongerHandler function
-func NewMongerHandler(originPeer, nameStr string, msg *data.RumorMessage, peerConection *ConnectionHandler, connectPeers *utils.PeerAddresses) *MongerHandler {
+func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.RumorMessage, peerConection *ConnectionHandler, connectPeers *utils.PeerAddresses) *MongerHandler {
 	used := make(map[string]bool)
 	if originPeer != "" {
 		used[originPeer] = true
@@ -56,6 +57,7 @@ func NewMongerHandler(originPeer, nameStr string, msg *data.RumorMessage, peerCo
 		currentMessage:         msg,
 		currentPeer:            "",
 		active:                 false,
+		routeMonguer:           isRouter,
 		currentlySynchronicing: false,
 		connection:             peerConection,
 		peers:                  connectPeers,
@@ -77,7 +79,9 @@ func (handler *MongerHandler) Start() {
 				handler.monguerWithPeer(true)
 			case <-handler.quitChannel:
 				logger.Log("Finishing monger handler - " + handler.Name)
-				handler.timer.Stop()
+				if handler.timer.C != nil {
+					handler.timer.Stop()
+				}
 				go handler.setActive(false)
 				return
 			case <-handler.timer.C:
@@ -113,9 +117,7 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 		handler.connection.SendPacketToPeer(peer.String(), packet)
 	} else {
 		logger.Log(fmt.Sprint("No peers to monger with"))
-		if handler.timer.C != nil {
-			handler.Stop()
-		}
+		handler.Stop()
 	}
 }
 
@@ -179,6 +181,13 @@ func (handler *MongerHandler) IsActive() bool {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	return handler.active
+}
+
+// IsRouteMonguer gets handler status
+func (handler *MongerHandler) IsRouteMonguer() bool {
+	handler.mux.Lock()
+	defer handler.mux.Unlock()
+	return handler.routeMonguer
 }
 
 func (handler *MongerHandler) isSynking() bool {

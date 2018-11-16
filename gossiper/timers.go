@@ -24,7 +24,7 @@ func (gossiper *Gossiper) StartEntropyTimer() {
 				gossiper.mux.Lock()
 				gossiper.usedPeers[newpeer.String()] = true
 				gossiper.mux.Unlock()
-				gossiper.sendStatusMessage(newpeer.String())
+				gossiper.sendStatusMessage(newpeer.String(), "")
 			}
 			time.Sleep(1 * time.Second)
 		}

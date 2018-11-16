@@ -114,7 +114,7 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 		id := gossiper.rumorCounter.Increment()
 		rumorMessage := data.NewRumorMessage(gossiper.Name, id, msg.Text)
 		gossiper.rumorStack.AddMessage(*rumorMessage)
-		gossiper.mongerMessage(rumorMessage, "")
+		gossiper.mongerMessage(rumorMessage, "", false)
 	}
 
 }
@@ -155,27 +155,25 @@ func (gossiper *Gossiper) getUsedPeers() map[string]bool {
 	return gossiper.usedPeers
 }
 
-func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string) {
+func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string, routerMonguering bool) {
 	gossiper.mux.Lock()
-	processName := fmt.Sprint(len(gossiper.monguerPocesses))
+	processName := fmt.Sprint(len(gossiper.monguerPocesses), "/", routerMonguering)
 	logger.Log("Starting monger process - " + processName)
-	monguerProcess := handler.NewMongerHandler(originPeer, processName, msg, gossiper.peerConection, gossiper.peers)
+	monguerProcess := handler.NewMongerHandler(originPeer, processName, routerMonguering, msg, gossiper.peerConection, gossiper.peers)
 	gossiper.monguerPocesses[processName] = monguerProcess
 	monguerProcess.Start()
 	gossiper.mux.Unlock()
 }
 
-func (gossiper *Gossiper) findMonguerHandler(originAddress string) *handler.MongerHandler {
+func (gossiper *Gossiper) findMonguerHandler(originAddress string, routeMonguer bool) *handler.MongerHandler {
 	processes := gossiper.getMongerProcesses()
 	// fmt.Println(processes)
 	for _, process := range processes {
-		// delete inactive peer
 		if !process.IsActive() {
-			go gossiper.deleteMongerProcess(process.Name)
+			gossiper.deleteMongerProcess(process.Name)
 			continue
 		}
-
-		if process.GetMonguerPeer() == originAddress {
+		if process.GetMonguerPeer() == originAddress && process.IsRouteMonguer() == routeMonguer {
 			return process
 		}
 	}
