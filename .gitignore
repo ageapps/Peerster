@@ -1,6 +1,7 @@
 *.out
 Peerster
 client/client
+server/server
 
 .DS_Store
 node_modules

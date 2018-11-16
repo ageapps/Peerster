@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/ageapps/Peerster)](https://goreportcard.com/report/github.com/ageapps/Peerster)
+
 # Peerster
 Peerster is a project fully written in `Go` that aims to create a full enviroment to emulate a distributed network using the Gossip Protocol.
 
