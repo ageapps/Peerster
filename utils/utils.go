@@ -36,6 +36,7 @@ func GetPeerAddress(value string) (PeerAddress, error) {
 	return address, address.Set(value)
 }
 
+// String method
 func (address *PeerAddress) String() string {
 	return fmt.Sprint(address.IP.String(), ":", address.Port)
 }
@@ -65,6 +66,7 @@ func (peers *PeerAddresses) String() string {
 	return strings.Join(s, ",")
 }
 
+// GetAdresses func
 func (peers *PeerAddresses) GetAdresses() []PeerAddress {
 	peers.mux.Lock()
 	defer peers.mux.Unlock()
