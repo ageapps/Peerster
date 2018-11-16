@@ -1,4 +1,4 @@
-package gossiper
+package handler
 
 import (
 	"errors"
@@ -21,7 +21,7 @@ type ConnectionHandler struct {
 
 // NewConnectionHandler function
 func NewConnectionHandler(address, name string) (*ConnectionHandler, error) {
-	udpAddr, udpConn, err := startListening(address)
+	udpAddr, udpConn, err := StartListening(address)
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +38,8 @@ func (handler *ConnectionHandler) Close() {
 		// log.Fatal(err1)
 	}
 }
-func startListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
-	logger.Log("Starting to linten in address: " + address)
+func StartListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
+	logger.Log("Starting to listen in address: " + address)
 	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
 		return nil, nil, err1
 	} else if udpConn, err2 := net.ListenUDP("udp4", udpAddr); err2 != nil {
@@ -50,38 +50,39 @@ func startListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
 }
 
 // BroadcastPacket function
-func (handler *ConnectionHandler) broadcastPacket(peers *utils.PeerAddresses, packet *data.GossipPacket, incommingPeer string) {
+func (handler *ConnectionHandler) BroadcastPacket(peers *utils.PeerAddresses, packet *data.GossipPacket, incommingPeer string) {
 	logger.Log("Broadcasting packet " + packet.GetPacketType())
 	for _, peer := range peers.Addresses {
 		if incommingPeer == peer.String() {
 			continue
 		}
-		handler.sendPacketToPeer(peer.String(), packet)
+		handler.SendPacketToPeer(peer.String(), packet)
 	}
 }
 
-func (handler *ConnectionHandler) sendPacketToPeer(address string, packet *data.GossipPacket) error {
+func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.GossipPacket) error {
 	if handler.conn == nil {
 		return errors.New("No connection")
 	}
-	udpaddr, err1 := net.ResolveUDPAddr("udp4", address)
-	if err1 != nil {
-		logger.Log("Error Resolving address")
-		return err1
-	}
 	logger.Log("Sending packet " + packet.GetPacketType() + " to <" + address + ">")
-	packetBytes, err2 := protobuf.Encode(packet)
-	if err2 != nil {
-		logger.Log("Warning Encoding")
-	}
-	if _, err3 := handler.conn.WriteToUDP(packetBytes, udpaddr); err3 != nil {
-		logger.Log("Error Sending Packet")
-		return err3
-	}
+
+	go func() {
+		udpaddr, err1 := net.ResolveUDPAddr("udp4", address)
+		if err1 != nil {
+			logger.Log("Error Resolving address")
+		}
+		packetBytes, err2 := protobuf.Encode(packet)
+		if err2 != nil {
+			logger.Log("Warning Encoding")
+		}
+		if _, err3 := handler.conn.WriteToUDP(packetBytes, udpaddr); err3 != nil {
+			logger.Log("Error Sending Packet")
+		}
+	}()
 	return nil
 }
 
-func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string, error) {
+func (handler *ConnectionHandler) ReadPacket(packet *data.GossipPacket) (string, error) {
 
 	if handler.conn == nil {
 		return "", errors.New("No connection")
@@ -94,11 +95,11 @@ func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string,
 	}
 	err2 := protobuf.Decode(buffer, packet)
 	if err2 != nil {
-		logger.Log("Warning Decoding")
+		// logger.Log("Warning Decoding")
 	}
 	return address.String(), nil
 }
-func (handler *ConnectionHandler) readMessage(msg *data.Message) (string, error) {
+func (handler *ConnectionHandler) ReadMessage(msg *data.Message) (string, error) {
 	buffer := make([]byte, 1024)
 	_, address, err := handler.conn.ReadFromUDP(buffer)
 	protobuf.Decode(buffer, msg)

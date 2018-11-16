@@ -15,11 +15,14 @@ type Route struct {
 var routes = Routes{
 	// Route{"Index", "GET", "/", Index},
 	Route{"Messages", "GET", "/message", GetMessages},
+	Route{"Messages", "GET", "/routes", GetRoutes},
+	Route{"Messages", "GET", "/private", GetPrivateMessages},
 	Route{"Nodes", "GET", "/node", GetNodes},
 	Route{"ID", "GET", "/id", GetID},
 	Route{"Health", "GET", "/health", Health},
 	Route{"Messages", "POST", "/message", PostMessage},
 	Route{"Nodes", "POST", "/node", PostNode},
+	Route{"Nodes", "POST", "/private", PostPrivateMessage},
 	Route{"Start", "POST", "/start", Start},
 	Route{"Delete", "POST", "/delete", Delete},
 }

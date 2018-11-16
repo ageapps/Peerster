@@ -9,8 +9,18 @@ type SimpleMessage struct {
 
 // Message to send
 type Message struct {
-	Text string
-	ID   uint32
+	Text        string
+	Destination string
+	ID          uint32
+}
+
+// PrivateMessage to send
+type PrivateMessage struct {
+	Origin      string
+	ID          uint32
+	Destination string
+	Text        string
+	HopLimit    uint32
 }
 
 // RumorMessage to send
@@ -24,4 +34,11 @@ type RumorMessage struct {
 type PeerStatus struct {
 	Identifier string
 	NextID     uint32
+}
+
+func (rumor *RumorMessage) IsRouteRumor() bool {
+	return rumor.Text == ""
+}
+func (msg *Message) IsPrivate() bool {
+	return msg.Destination != ""
 }
