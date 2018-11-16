@@ -25,8 +25,8 @@ type Gossiper struct {
 	privateStack    PrivateStack
 	router          *router.Router
 	monguerPocesses map[string]*handler.MongerHandler
-	rumorCounter    *utils.Counter // [name] adress
-	privateCounter  *utils.Counter // [name] adress
+	rumorCounter    *utils.Counter // [name] address
+	privateCounter  *utils.Counter // [name] address
 	mux             sync.Mutex
 	usedPeers       map[string]bool
 }

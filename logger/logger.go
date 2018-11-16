@@ -33,33 +33,45 @@ func LogStatus(msg data.StatusPacket, from string) {
 	fmt.Printf("STATUS from %v %v\n", from, logStr)
 }
 
+// LogSimple func
 func LogSimple(msg data.SimpleMessage) {
 	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v\n", msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
 }
 func LogPeers(peers string) {
 	fmt.Println("PEERS " + peers)
 }
+
+// LogInSync func
 func LogInSync(peer string) {
 	fmt.Println("IN SYNC WITH " + peer)
 }
 
+// LogClient func
 func LogClient(msg data.Message) {
 	fmt.Printf("CLIENT MESSAGE %v\n", msg.Text)
 }
+
+// LogCoin func
 func LogCoin(address string) {
 	fmt.Printf("FLIPPED COIN sending rumor to %v\n", address)
 }
+
+// LogMonguer func
 func LogMonguer(address string) {
 	fmt.Printf("MONGERING with %v \n", address)
 }
 
+// LogDSDV func
 func LogDSDV(origin, address string) {
 	fmt.Printf("DSDV %v %v\n", origin, address)
 }
+
+// LogPrivate func
 func LogPrivate(msg data.PrivateMessage) {
 	fmt.Printf("PRIVATE origin %v hop-limit %v contents %v \n", msg.Origin, msg.HopLimit, msg.Text)
 }
 
+// CreateLogger func
 func CreateLogger(name, address string, debug bool) {
 	instance.name = name
 	instance.address = address
@@ -72,6 +84,7 @@ func CreateLogger(name, address string, debug bool) {
 	}
 }
 
+// Log func
 func Log(text string) {
 	if instance.debug {
 		instance.log.Println(text)

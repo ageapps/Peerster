@@ -1,7 +1,5 @@
 package data
 
-import (
-)
 // SimpleMessage struct
 type SimpleMessage struct {
 	OriginalName  string
@@ -11,18 +9,18 @@ type SimpleMessage struct {
 
 // Message to send
 type Message struct {
-	Text string
+	Text        string
 	Destination string
-	ID   uint32
+	ID          uint32
 }
 
 // PrivateMessage to send
 type PrivateMessage struct {
-	Origin string
-	ID   uint32
+	Origin      string
+	ID          uint32
 	Destination string
-	Text string
-	HopLimit   uint32
+	Text        string
+	HopLimit    uint32
 }
 
 // RumorMessage to send
@@ -38,9 +36,9 @@ type PeerStatus struct {
 	NextID     uint32
 }
 
-func (rumor *RumorMessage) IsRouteRumor() bool{
+func (rumor *RumorMessage) IsRouteRumor() bool {
 	return rumor.Text == ""
 }
-func (msg *Message) IsPrivate() bool{
+func (msg *Message) IsPrivate() bool {
 	return msg.Destination != ""
 }

@@ -19,7 +19,7 @@ var (
 func sendMessage(msg, dest string) error {
 	fmt.Println("Sending <" + msg + "> to address " + serverAdress.String())
 	tmsg := &data.Message{
-		Text: msg,
+		Text:        msg,
 		Destination: dest,
 	}
 	buf, err1 := protobuf.Encode(tmsg)
