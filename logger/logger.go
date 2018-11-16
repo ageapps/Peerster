@@ -2,17 +2,24 @@ package logger
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/ageapps/Peerster/data"
 )
-
-var l = Logger{"", "", false}
 
 type Logger struct {
 	address string
 	name    string
 	debug   bool
+	log     *log.Logger
 }
+
+var instance = Logger{
+	address: "",
+	name:    "",
+	debug:   false,
+	log:     log.New(os.Stdout, "LOG: ", log.Ltime)}
 
 func LogRumor(msg data.RumorMessage, from string) {
 	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", msg.Origin, from, msg.ID, msg.Text)
@@ -54,17 +61,19 @@ func LogPrivate(msg data.PrivateMessage) {
 }
 
 func CreateLogger(name, address string, debug bool) {
-	l.name = name
-	l.address = address
-	l.debug = debug
-	if l.debug {
-		fmt.Printf("*******  Logger Created  ******\nNAME: %v\nADRESS: %v\n", l.name, l.address)
+	instance.name = name
+	instance.address = address
+	instance.debug = debug
+
+	instance.log = log.New(os.Stdout, "["+name+"/"+address+"]: ", log.Ltime)
+	if debug {
+		fmt.Printf("*******  Logger Created  ******\nNAME: %v\nADRESS: %v\n", name, address)
 		fmt.Printf("*******  **************  ******\n")
 	}
 }
 
 func Log(text string) {
-	if l.debug {
-		fmt.Println("[" + l.name + "/" + l.address + "]: " + text)
+	if instance.debug {
+		instance.log.Println(text)
 	}
 }

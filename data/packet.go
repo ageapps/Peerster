@@ -1,19 +1,19 @@
 package data
 
 const (
-	PACKET_SIMPLE = "SIMPLE"
-	PACKET_RUMOR  = "RUMOR"
-	PACKET_STATUS = "STATUS"
+	PACKET_SIMPLE  = "SIMPLE"
+	PACKET_RUMOR   = "RUMOR"
+	PACKET_STATUS  = "STATUS"
 	PACKET_PRIVATE = "PRIVATE"
 )
 
 // GossipPacket struct
 type GossipPacket struct {
-	Simple *SimpleMessage
-	Rumor *RumorMessage
-	Status *StatusPacket
+	Simple  *SimpleMessage
+	Rumor   *RumorMessage
+	Status  *StatusPacket
 	Private *PrivateMessage
-	}
+}
 
 // StatusPacket to send
 type StatusPacket struct {
@@ -47,13 +47,13 @@ func NewPrivateMessage(origin string, ID uint32, destination, text string, hops 
 // GetPacketType function
 func (packet *GossipPacket) GetPacketType() string {
 	switch {
-	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil  && packet.Private == nil:
+	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil:
 		return PACKET_RUMOR
-	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil  && packet.Private == nil:
+	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil && packet.Private == nil:
 		return PACKET_STATUS
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil  && packet.Private == nil:
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil && packet.Private == nil:
 		return PACKET_SIMPLE
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil  && packet.Private != nil:
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private != nil:
 		return PACKET_PRIVATE
 	default:
 		return ""

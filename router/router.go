@@ -28,12 +28,13 @@ func (router *Router) GetTable() *RoutingTable {
 	return &router.table
 }
 
-func (router *Router) SetEntry(origin, address string) (isNew bool) {
+func (router *Router) SetEntry(origin, address string) bool {
 	router.mux.Lock()
 	defer router.mux.Unlock()
-	isNew = false
+	isNew := false
 	oldValue, ok := router.table[origin]
-	if !ok || reflect.ValueOf(oldValue).IsNil() || oldValue.String() != address{
+
+	if !ok || reflect.ValueOf(oldValue).IsNil() || oldValue.String() != address {
 		isNew = true
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)
@@ -44,8 +45,14 @@ func (router *Router) SetEntry(origin, address string) (isNew bool) {
 		router.table[origin] = &newEntry
 		logger.LogDSDV(origin, address)
 	}
-	
 	return isNew
+}
+
+func (router *Router) EntryExists(origin string) (isNew bool) {
+	router.mux.Lock()
+	defer router.mux.Unlock()
+	_, ok := router.table[origin]
+	return ok
 }
 
 func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, found bool) {

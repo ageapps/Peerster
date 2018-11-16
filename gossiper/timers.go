@@ -37,18 +37,18 @@ func (gossiper *Gossiper) StartRouteTimer(rtimer int) {
 	go func() {
 		// logger.Log("Starting Route timer")
 		for {
-			gossiper.mux.Lock()
-			usedPeers := gossiper.usedPeers
-			gossiper.mux.Unlock()
-
-			if len(usedPeers) >= len(gossiper.peers.GetAdresses()) {
-				// logger.Log("Entropy Timer - All peers where notified")
-			}
+			// gossiper.mux.Lock()
+			// usedPeers := gossiper.usedPeers
+			// gossiper.mux.Unlock()
+			usedPeers := make(map[string]bool)
+			// if len(usedPeers) >= len(gossiper.peers.GetAdresses()) {
+			// 	// logger.Log("Entropy Timer - All peers where notified")
+			// }
 			if newpeer := gossiper.peers.GetRandomPeer(usedPeers); newpeer != nil {
 				logger.Log("Route Timer - MESSAGE")
-				gossiper.mux.Lock()
-				gossiper.usedPeers[newpeer.String()] = true
-				gossiper.mux.Unlock()
+				// gossiper.mux.Lock()
+				// gossiper.usedPeers[newpeer.String()] = true
+				// gossiper.mux.Unlock()
 				gossiper.sendRouteRumorMessage(newpeer.String())
 			}
 			time.Sleep(time.Duration(rtimer) * time.Second)

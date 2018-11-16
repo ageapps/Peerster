@@ -99,12 +99,10 @@ func newTimer() *time.Timer {
 	return time.NewTimer(1 * time.Second)
 }
 func (handler *MongerHandler) monguerWithPeer(flipped bool) {
-	handler.mux.Lock()
-	if peer := handler.peers.GetRandomPeer(*handler.usedPeers); peer != nil {
+	if peer := handler.GetPeers().GetRandomPeer(*handler.usedPeers); peer != nil {
 		handler.timer = newTimer()
-		handler.currentPeer = peer.String()
-		(*handler.usedPeers)[peer.String()] = true
-		handler.mux.Unlock()
+		handler.setMonguerPeer(peer.String())
+		handler.addUsedPeer(peer.String())
 		// logger.Log(fmt.Sprint("Monguering with peer: ", peer.String()))
 		packet := &data.GossipPacket{Rumor: handler.getMonguerMessage()}
 		if !flipped {
@@ -115,7 +113,9 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 		handler.connection.SendPacketToPeer(peer.String(), packet)
 	} else {
 		logger.Log(fmt.Sprint("No peers to monger with"))
-		handler.Stop()
+		if handler.timer.C != nil {
+			handler.Stop()
+		}
 	}
 }
 
@@ -161,10 +161,23 @@ func (handler *MongerHandler) GetMonguerPeer() string {
 	return handler.currentPeer
 }
 
+// GetPeers function
+func (handler *MongerHandler) GetPeers() *utils.PeerAddresses {
+	handler.mux.Lock()
+	defer handler.mux.Unlock()
+	return handler.peers
+}
+
+func (handler *MongerHandler) setMonguerPeer(peer string) {
+	handler.mux.Lock()
+	handler.currentPeer = peer
+	handler.mux.Unlock()
+}
+
 // IsActive gets handler status
 func (handler *MongerHandler) IsActive() bool {
-	// handler.mux.Lock()
-	// defer handler.mux.Unlock()
+	handler.mux.Lock()
+	defer handler.mux.Unlock()
 	return handler.active
 }
 
@@ -184,6 +197,11 @@ func (handler *MongerHandler) SetSynking(value bool) {
 func (handler *MongerHandler) setActive(value bool) {
 	handler.mux.Lock()
 	handler.active = value
+	handler.mux.Unlock()
+}
+func (handler *MongerHandler) addUsedPeer(peer string) {
+	handler.mux.Lock()
+	(*handler.usedPeers)[peer] = true
 	handler.mux.Unlock()
 }
 

@@ -4,21 +4,21 @@ import (
 	"flag"
 	"log"
 	"net"
-	"os"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/logger"
 	"github.com/ageapps/Peerster/utils"
 )
 
+// Setup flags with this sintax
+// gossiper -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001,127.0.0.1:5002 -simple
+// TO TEST
+// go run main.go -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001 -rtimer=3
+// go run main.go -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5002 -rtimer=3
+// go run main.go -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 -rtimer=3
+
 func main() {
 
-	// Setup flags with this sintax
-	// gossiper -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001,127.0.0.1:5002 -simple
-	// TO TEST
-	// go run main.go -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -peers=127.0.0.1:5001 -rtimer=3
-	// go run main.go -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5002 -rtimer=3
-	// go run main.go -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 -rtimer=3
 	var peers = utils.PeerAddresses{}
 	var gossipAddr = utils.PeerAddress{IP: net.ParseIP("127.0.0.1"), Port: 5000}
 	var UIPort = flag.Int("UIPort", 10000, "Define the port to which the client will connect")
@@ -30,10 +30,10 @@ func main() {
 
 	flag.Parse()
 
-	if len(peers.GetAdresses()) == 0 {
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
+	// if len(peers.GetAdresses()) == 0 {
+	// 	flag.PrintDefaults()
+	// 	os.Exit(1)
+	// }
 
 	// fmt.Println(UIPort)
 	// fmt.Println(name)
@@ -50,10 +50,10 @@ func main() {
 	go gossiper.ListenToClients(*UIPort)
 	go gossiper.ListenToPeers()
 	if !*simple {
+		if *rtimer > 0 {
+			gossiper.StartRouteTimer(*rtimer)
+		}
 		gossiper.StartEntropyTimer()
-	}
-	if *rtimer > 0 {
-		gossiper.StartRouteTimer(*rtimer)
 	}
 	for {
 

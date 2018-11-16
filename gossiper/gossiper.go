@@ -119,26 +119,25 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 
 }
 
-func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, origin string) {
-	err := gossiper.peers.Set(origin)
+func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddress string) {
+	err := gossiper.peers.Set(originAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	packetType := packet.GetPacketType()
 	logger.Log("Peer packet received: " + packetType)
 
 	switch packetType {
 	case data.PACKET_STATUS:
-		gossiper.handleStatusMessage(packet.Status, origin)
+		gossiper.handleStatusMessage(packet.Status, originAddress)
 	case data.PACKET_RUMOR:
-		gossiper.handleRumorMessage(packet.Rumor, origin)
+		gossiper.handleRumorMessage(packet.Rumor, originAddress)
 	case data.PACKET_PRIVATE:
-		gossiper.handlePrivateMessage(packet.Private, origin)
+		gossiper.handlePrivateMessage(packet.Private, originAddress)
 	case data.PACKET_SIMPLE:
 		logger.LogSimple(*packet.Simple)
 		logger.LogPeers(gossiper.peers.String())
-		gossiper.handleSimpleMessage(packet.Simple, origin)
+		gossiper.handleSimpleMessage(packet.Simple, originAddress)
 	default:
 		logger.Log("Message not recognized")
 		// log.Fatal(errors.New("Message not recognized"))
@@ -166,24 +165,17 @@ func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer strin
 	gossiper.mux.Unlock()
 }
 
-func (gossiper *Gossiper) findMonguerHandler(origin string) *handler.MongerHandler {
-	processes := gossiper.monguerPocesses
+func (gossiper *Gossiper) findMonguerHandler(originAddress string) *handler.MongerHandler {
+	processes := gossiper.getMongerProcesses()
 	// fmt.Println(processes)
 	for _, process := range processes {
-		// logger.Log(fmt.Sprintf("monguer - %v", process.Name))
-
 		// delete inactive peer
-		status := !process.IsActive()
-		// fmt.Printf("STATUS monguer - %v \n", status)
-
-		if status {
-			// fmt.Printf("DEEEEELLL monguer - %v \n", process.Name)
+		if !process.IsActive() {
 			go gossiper.deleteMongerProcess(process.Name)
 			continue
 		}
-		// fmt.Printf("Active - %v \n", process.Name)
 
-		if process.GetMonguerPeer() == origin {
+		if process.GetMonguerPeer() == originAddress {
 			return process
 		}
 	}

@@ -31,6 +31,14 @@ func (gossiper *Gossiper) sendRouteRumorMessage(destinationAdress string) {
 	gossiper.peerConection.SendPacketToPeer(destinationAdress, packet)
 }
 
+func (gossiper *Gossiper) broadcastRouteRumorMessage(destinationAdress string) {
+	latestMsgID := gossiper.rumorCounter.GetValue() + 1
+	routeRumorMessage := data.NewRumorMessage(gossiper.Name, latestMsgID, "")
+	packet := &data.GossipPacket{Rumor: routeRumorMessage}
+	logger.Log(fmt.Sprintf("Sending ROUTE RUMOR ID:%v", latestMsgID))
+	gossiper.peerConection.SendPacketToPeer(destinationAdress, packet)
+}
+
 func (gossiper *Gossiper) sendPrivateMessage(msg *data.PrivateMessage) {
 	packet := &data.GossipPacket{Private: msg}
 	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
