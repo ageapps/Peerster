@@ -10,6 +10,7 @@ type Counter struct {
 	mux   sync.Mutex
 }
 
+// NewCounter method
 func NewCounter(initialValue uint32) *Counter {
 	return &Counter{
 		value: initialValue,
@@ -29,4 +30,11 @@ func (counter *Counter) SetValue(value uint32) {
 	counter.mux.Lock()
 	defer counter.mux.Unlock()
 	counter.value = value
+}
+
+//GetValue function
+func (counter *Counter) GetValue() uint32 {
+	counter.mux.Lock()
+	defer counter.mux.Unlock()
+	return counter.value
 }

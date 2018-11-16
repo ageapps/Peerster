@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ageapps/Peerster/router"
+
 	"github.com/ageapps/Peerster/data"
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/logger"
@@ -27,7 +29,6 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
 		for _, gossiper := range serverGossiper {
 			if gossiper.Address.String() == address || gossiper.Name == name {
-				logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", gossiper.Name, gossiper.Address))
 				logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", name, address))
 				return gossiper.Name
 			}
@@ -38,7 +39,16 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	serverGossiper[name].SetPeers(peers)
 	go serverGossiper[name].ListenToPeers()
 	serverGossiper[name].StartEntropyTimer()
+	serverGossiper[name].StartRouteTimer(5)
 	return name
+}
+
+func getGossiperRoutes(name string) *router.RoutingTable {
+	if reflect.ValueOf(serverGossiper).IsNil() {
+		return nil
+	}
+
+	return serverGossiper[name].GetRoutes()
 }
 
 func getGossiperMessages(name string) *[]data.RumorMessage {
@@ -46,6 +56,12 @@ func getGossiperMessages(name string) *[]data.RumorMessage {
 		return nil
 	}
 	return serverGossiper[name].GetLatestMessages()
+}
+func getGossiperPrivateMessages(name string) *map[string][]data.PrivateMessage {
+	if reflect.ValueOf(serverGossiper).IsNil() {
+		return nil
+	}
+	return serverGossiper[name].GetPrivateMessages()
 }
 
 func getGossiperPeers(name string) *[]string {
@@ -86,6 +102,18 @@ func sendMessage(name, msg string) bool {
 	}
 	newMsg := &data.Message{
 		Text: msg,
+	}
+	serverGossiper[name].HandleClientMessage(newMsg)
+	return true
+}
+
+func sendPrivateMessage(name, destination, msg string) bool {
+	if reflect.ValueOf(serverGossiper).IsNil() {
+		return false
+	}
+	newMsg := &data.Message{
+		Text:        msg,
+		Destination: destination,
 	}
 	serverGossiper[name].HandleClientMessage(newMsg)
 	return true

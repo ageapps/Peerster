@@ -36,6 +36,7 @@ func GetPeerAddress(value string) (PeerAddress, error) {
 	return address, address.Set(value)
 }
 
+// String method
 func (address *PeerAddress) String() string {
 	return fmt.Sprint(address.IP.String(), ":", address.Port)
 }
@@ -65,28 +66,29 @@ func (peers *PeerAddresses) String() string {
 	return strings.Join(s, ",")
 }
 
+// GetAdresses func
 func (peers *PeerAddresses) GetAdresses() []PeerAddress {
 	peers.mux.Lock()
 	defer peers.mux.Unlock()
 	return peers.Addresses
 }
 
-func (peers *PeerAddresses) appendPeers(adress PeerAddress) {
+func (peers *PeerAddresses) appendPeers(address PeerAddress) {
 	peers.mux.Lock()
 	defer peers.mux.Unlock()
-	peers.Addresses = append(peers.Addresses, adress)
+	peers.Addresses = append(peers.Addresses, address)
 }
 
 // Set PeerAddreses from string
 func (peers *PeerAddresses) Set(value string) error {
 
-	adresses := strings.Split(value, ",")
-	for _, item := range adresses {
-		var adress PeerAddress
-		if err := adress.Set(item); err != nil {
+	addresses := strings.Split(value, ",")
+	for _, item := range addresses {
+		var address PeerAddress
+		if err := address.Set(item); err != nil {
 			return err
 		} else if !strings.Contains(peers.String(), item) {
-			peers.appendPeers(adress)
+			peers.appendPeers(address)
 		}
 	}
 	return nil
