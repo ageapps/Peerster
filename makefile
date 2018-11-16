@@ -27,9 +27,9 @@ private:
 	go run --race ./client -UIPort=10002 -msg=Hello -dest=nodeA
 	
 front:	
-	bash -c "rm -r app/*"; \
 	location=~/git/Peerster-App; \
 	current=$(shell pwd) && cd $$location && npm run build && cd $$current; \
+	bash -c "rm -r app/*"; \
 	cp -R $$location/dist/* ./app 
 
 	
