@@ -6,8 +6,8 @@ import (
 	"net"
 
 	"github.com/ageapps/Peerster/gossiper"
-	"github.com/ageapps/Peerster/logger"
-	"github.com/ageapps/Peerster/utils"
+	"github.com/ageapps/Peerster/pkg/logger"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 // Setup flags with this sintax
@@ -48,14 +48,12 @@ func main() {
 	}
 	gossiper.SetPeers(&peers)
 	go gossiper.ListenToClients(*UIPort)
-	go gossiper.ListenToPeers()
+
 	if !*simple {
 		if *rtimer > 0 {
 			gossiper.StartRouteTimer(*rtimer)
 		}
 		gossiper.StartEntropyTimer()
 	}
-	for {
-
-	}
+	gossiper.ListenToPeers()
 }

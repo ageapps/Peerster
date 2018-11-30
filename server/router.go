@@ -24,7 +24,7 @@ func NewRouter() *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("../app/")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("../web/")))
 
 	return router
 }

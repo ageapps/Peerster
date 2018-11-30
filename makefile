@@ -1,3 +1,7 @@
+t = 3 # timer
+n= 4 # node number
+
+
 build:
 	go build .
 	cd ./client && go build . && cd ..
@@ -8,13 +12,16 @@ clean:
 	go clean ./client/
 	go clean ./server/
 
-test1:
+run:
+	go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)
+
+run1:
 	go run --race . -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -rtimer=3
 
-test2:
+run2:
 	go run --race . -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5000 -rtimer=3
 
-test3:
+run3:
 	go run --race . -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5001 -rtimer=3
 
 send:

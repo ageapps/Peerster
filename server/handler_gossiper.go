@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ageapps/Peerster/router"
-
-	"github.com/ageapps/Peerster/data"
 	"github.com/ageapps/Peerster/gossiper"
-	"github.com/ageapps/Peerster/logger"
-	"github.com/ageapps/Peerster/utils"
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/logger"
+	"github.com/ageapps/Peerster/pkg/router"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 var (

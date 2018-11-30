@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ageapps/Peerster/logger"
+	"github.com/ageapps/Peerster/pkg/logger"
 )
 
 // StartEntropyTimer function

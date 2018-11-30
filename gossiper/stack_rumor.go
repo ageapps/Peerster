@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ageapps/Peerster/data"
-	"github.com/ageapps/Peerster/logger"
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/logger"
 )
 
 const (

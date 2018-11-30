@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/ageapps/Peerster/utils"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 // Health message

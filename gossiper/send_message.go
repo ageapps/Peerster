@@ -3,8 +3,8 @@ package gossiper
 import (
 	"fmt"
 
-	"github.com/ageapps/Peerster/data"
-	"github.com/ageapps/Peerster/logger"
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/logger"
 )
 
 func (gossiper *Gossiper) sendStatusMessage(destination, nodeName string) {

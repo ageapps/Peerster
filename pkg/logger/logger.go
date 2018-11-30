@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ageapps/Peerster/data"
+	"github.com/ageapps/Peerster/pkg/data"
 )
 
 // Logger struct
