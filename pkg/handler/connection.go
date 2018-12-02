@@ -17,19 +17,28 @@ type ConnectionHandler struct {
 	address *net.UDPAddr
 	conn    *net.UDPConn
 	Name    string
+	running bool
+	MessageQueue chan data.UDPMessage
 }
 
 // NewConnectionHandler function
-func NewConnectionHandler(address, name string) (*ConnectionHandler, error) {
-	udpAddr, udpConn, err := StartListening(address)
+func NewConnectionHandler(address, name string, listenToPackets bool) (*ConnectionHandler, error) {
+	udpAddr, udpConn, err := createConnection(address)
 	if err != nil {
 		return nil, err
 	}
-	return &ConnectionHandler{
+
+	conHand := &ConnectionHandler{
 		address: udpAddr,
 		conn:    udpConn,
 		Name:    name,
-	}, nil
+		running: false,
+		MessageQueue: make(chan data.UDPMessage),
+	}
+
+	go conHand.startListening(conHand.MessageQueue, listenToPackets)
+
+	return conHand, nil
 }
 
 // Close connection
@@ -38,10 +47,11 @@ func (handler *ConnectionHandler) Close() {
 		logger.Log(fmt.Sprintln("Error closing connection", err))
 		// log.Fatal(err1)
 	}
+	close(handler.MessageQueue)
 }
 
-// StartListening in address
-func StartListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
+// CreateConnection in address
+func createConnection(address string) (*net.UDPAddr, *net.UDPConn, error) {
 	logger.Log("Starting to listen in address: " + address)
 	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
 		return nil, nil, err1
@@ -50,6 +60,34 @@ func StartListening(address string) (*net.UDPAddr, *net.UDPConn, error) {
 	} else {
 		return udpAddr, udpConn, nil
 	}
+}
+
+func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, listenToPackets bool) {
+	handler.running = true
+	for handler.running {
+		var msg data.UDPMessage
+		var err error
+
+		if listenToPackets {
+			packet := &data.GossipPacket{}
+			address, e := handler.readPacket(packet)
+
+			msg = data.UDPMessage{Packet: *packet, Address: address}
+			err = e
+		} else {
+			message := &data.Message{}
+			address, e := handler.readMessage(message)
+
+			msg = data.UDPMessage{Message: *message, Address: address}
+			err = e
+		}
+		if err != nil {
+			logger.Log("Error reading packet")
+			break
+		}
+		messages <- msg
+	}
+	close(messages)
 }
 
 // BroadcastPacket function
@@ -86,8 +124,8 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 	return nil
 }
 
-// ReadPacket reads and decodes packet
-func (handler *ConnectionHandler) ReadPacket(packet *data.GossipPacket) (string, error) {
+// readPacket reads and decodes packet
+func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string, error) {
 
 	if handler.conn == nil {
 		return "", errors.New("No connection")
@@ -105,10 +143,15 @@ func (handler *ConnectionHandler) ReadPacket(packet *data.GossipPacket) (string,
 	return address.String(), nil
 }
 
-// ReadMessage reads and decodes message
-func (handler *ConnectionHandler) ReadMessage(msg *data.Message) (string, error) {
+// readMessage reads and decodes message
+func (handler *ConnectionHandler) readMessage(msg *data.Message) (string, error) {
 	buffer := make([]byte, 1024)
 	_, address, err := handler.conn.ReadFromUDP(buffer)
 	protobuf.Decode(buffer, msg)
 	return address.String(), err
+}
+
+// Stop handler
+func (handler *ConnectionHandler) Stop() {
+	handler.running = false
 }

@@ -27,6 +27,8 @@ func NewRouter() *Router {
 
 // GetTable returns routing table
 func (router *Router) GetTable() *RoutingTable {
+	router.mux.Lock()
+	defer router.mux.Unlock()
 	return &router.table
 }
 

@@ -128,8 +128,6 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 			logger.Log("IN SYNC, FLIPPING COIN")
 			if !keepRumorering() {
 				handler.Stop()
-				// delete handler from slice
-				go gossiper.deleteMongerProcess(handler.Name)
 			} else {
 				handler.Reset()
 			}

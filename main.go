@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"fmt"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/pkg/logger"
@@ -30,30 +31,15 @@ func main() {
 
 	flag.Parse()
 
-	// if len(peers.GetAdresses()) == 0 {
-	// 	flag.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-
-	// fmt.Println(UIPort)
-	// fmt.Println(name)
-	// fmt.Println(simple)
-	// fmt.Println(peers.String())
-
 	logger.CreateLogger(*name, gossipAddr.String(), true)
 
-	var gossiper, err = gossiper.NewGossiper(gossipAddr.String(), *name, *simple)
+	var gossiper, err = gossiper.NewGossiper(gossipAddr.String(), *name, *simple, *rtimer)
 	if err != nil {
 		log.Fatal(err)
 	}
-	gossiper.SetPeers(&peers)
+	go gossiper.SetPeers(&peers)
 	go gossiper.ListenToClients(*UIPort)
-
-	if !*simple {
-		if *rtimer > 0 {
-			gossiper.StartRouteTimer(*rtimer)
-		}
-		gossiper.StartEntropyTimer()
+	if err := gossiper.ListenToPeers(); err != nil{
+		fmt.Errorf("could not start listening to peers: %v", err)
 	}
-	gossiper.ListenToPeers()
 }

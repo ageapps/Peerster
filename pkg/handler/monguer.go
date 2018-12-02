@@ -42,6 +42,7 @@ type MongerHandler struct {
 	timer                  *time.Timer
 	quitChannel            chan bool
 	resetChannel           chan bool
+	StopChannel           chan bool
 	usedPeers              *map[string]bool
 }
 
@@ -62,6 +63,7 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 		peers:                  connectPeers,
 		timer:                  &time.Timer{},
 		quitChannel:            make(chan bool),
+		StopChannel:            make(chan bool),
 		resetChannel:           make(chan bool),
 		usedPeers:              &used,
 	}
@@ -82,7 +84,6 @@ func (handler *MongerHandler) Start() {
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
-				go handler.setActive(false)
 				return
 			case <-handler.timer.C:
 				// Flip coin
@@ -128,8 +129,10 @@ func (handler *MongerHandler) Stop() {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	logger.Log("Stopping monger handler")
+	go handler.setActive(false)
 	go func() {
-		handler.quitChannel <- true
+		close(handler.quitChannel)
+		close(handler.StopChannel)
 	}()
 }
 

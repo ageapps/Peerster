@@ -1,5 +1,12 @@
 package data
 
+// UDPMessage struct
+type UDPMessage struct {
+	Address string
+	Packet  GossipPacket
+	Message Message
+}
+
 // SimpleMessage struct
 type SimpleMessage struct {
 	OriginalName  string

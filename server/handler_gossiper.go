@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/ageapps/Peerster/gossiper"
@@ -23,7 +24,7 @@ type StatusResponse struct {
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	logger.CreateLogger(name, address, true)
-	newGossiper, err := gossiper.NewGossiper(address, name, false)
+	newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
 	if err != nil {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
 		for _, gossiper := range serverGossiper {
@@ -35,10 +36,12 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 		return ""
 	}
 	serverGossiper[name] = newGossiper
-	serverGossiper[name].SetPeers(peers)
-	go serverGossiper[name].ListenToPeers()
-	serverGossiper[name].StartEntropyTimer()
-	serverGossiper[name].StartRouteTimer(5)
+	go serverGossiper[name].SetPeers(peers)
+	go func() {
+		if err := serverGossiper[name].ListenToPeers(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	return name
 }
 
@@ -67,7 +70,7 @@ func getGossiperPeers(name string) *[]string {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return nil
 	}
-	return serverGossiper[name].GetPeers()
+	return serverGossiper[name].GetPeerArray()
 }
 
 func getStatusResponse(name string) *StatusResponse {

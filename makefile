@@ -28,7 +28,7 @@ send:
 	go run --race ./client -UIPort=10000 -msg=Hello
 
 serve:
-	go run --race ./server
+	cd ./server && go run --race .
 
 private:
 	go run --race ./client -UIPort=10002 -msg=Hello -dest=nodeA
