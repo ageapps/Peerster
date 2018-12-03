@@ -44,7 +44,4 @@ test1:
 
 test2:
 	sh test/test_2_ring.sh
-	
-
-	
   
