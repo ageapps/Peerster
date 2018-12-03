@@ -39,6 +39,11 @@ front:
 	bash -c "rm -r app/*"; \
 	cp -R $$location/dist/* ./app 
 
+test1:
+	sh test/test_1_ring.sh
+
+test2:
+	sh test/test_2_ring.sh
 	
 
 	
