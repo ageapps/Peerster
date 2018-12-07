@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,4 +113,18 @@ func (peers *PeerAddresses) GetRandomPeer(usedPeers map[string]bool) *PeerAddres
 			return &peers.Addresses[index]
 		}
 	}
+}
+
+var (
+	_, b, _, _ = runtime.Caller(0)
+	basepath   = filepath.Dir(b)
+)
+
+func GetRootPath() string {
+	return path.Join(basepath, "..", "..")
+}
+
+func GetFilesPath() string {
+	// return path.Join(GetRootPath(), "files")
+	return GetRootPath()
 }

@@ -41,11 +41,13 @@ func main() {
 	// go run . -UIPort=10000 -msg=Hello
 	var UIPort = flag.Int("UIPort", 10000, "Port for the UI client")
 	var dest = flag.String("dest", "", "Destination for the private message")
-	var msg = flag.String("msg", "", "Message to be sent")
+	var msg = flag.String("msg", "", "file to be indexed")
+	var file = flag.String("file", "", "Message to be sent")
 	flag.Parse()
 	serverAdress.Port = int64(*UIPort)
 	if e := sendMessage(*msg, *dest); e != nil {
 		log.Fatal(e)
 	}
+	_ = file
 
 }

@@ -96,3 +96,10 @@ func Log(text string) {
 		instance.log.Println(text)
 	}
 }
+
+// Logf func
+func Logf(format string, v ...interface{}) {
+	if instance.debug {
+		instance.log.Printf(format, v...)
+	}
+}
