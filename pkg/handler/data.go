@@ -105,7 +105,7 @@ func (handler *DataHandler) Start() {
 					log.Fatal(err)
 				}
 				logger.Logf("Added Chunk: %v", chunk.Hash.String())
-				logger.LogChunk(handler.file.Name, handler.currentPeer, handler.chunk)
+				logger.LogChunk(handler.file.Name, handler.currentPeer, handler.chunk+1)
 				handler.chunk++
 				if int64(len(chunk.Data)) < file.ChunckSize {
 					// last chunk of file
