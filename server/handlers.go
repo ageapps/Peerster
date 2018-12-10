@@ -6,10 +6,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 
-	"github.com/ageapps/Peerster/utils"
+	"github.com/ageapps/Peerster/pkg/logger"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 // Health message
@@ -52,6 +57,14 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	send(&w, getGossiperRoutes(name))
+}
+func GetFiles(w http.ResponseWriter, r *http.Request) {
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	send(&w, getGossiperFiles(name))
 }
 
 // GetNodes func
@@ -101,6 +114,32 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 	send(&w, getGossiperMessages(name))
 }
 
+// PostPrivateMessage func
+func PostRequest(w http.ResponseWriter, r *http.Request) {
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	dest, ok := params["destination"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no destination requested"))
+		return
+	}
+	hash, ok := params["hash"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no hash requested"))
+		return
+	}
+	file, ok := params["file"].(string)
+	if !ok || !sendFileRequest(name, dest, file, hash) {
+		sendError(&w, errors.New("Error while sending new request"))
+		return
+	}
+	send(&w, getGossiperFiles(name))
+}
+
 // PostNode func
 func PostNode(w http.ResponseWriter, r *http.Request) {
 	params := *readBody(&w, r)
@@ -138,6 +177,66 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	deleteGossiper(name)
 	sendOk(&w)
+}
+
+// Upload file
+func Upload(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	if name == "" {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	if path := downloadFile(w, r); path != "" {
+		send(&w, indexFileInGossiper(name, path))
+	}
+}
+
+func downloadFile(w http.ResponseWriter, r *http.Request) string {
+	r.Body = http.MaxBytesReader(w, r.Body, MAX_UPLOAD_SIZE)
+	if err := r.ParseMultipartForm(MAX_UPLOAD_SIZE); err != nil {
+		sendError(&w, fmt.Errorf("file to big, %v", err))
+		return ""
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		sendError(&w, fmt.Errorf("invalid file, %v", err))
+		return ""
+	}
+	defer file.Close()
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		sendError(&w, fmt.Errorf("invalid file, %v", err))
+		return ""
+	}
+	filetype := http.DetectContentType(fileBytes)
+	if filetype != "image/jpeg" && filetype != "image/jpg" &&
+		filetype != "image/gif" && filetype != "image/png" &&
+		filetype != "application/pdf" {
+		sendError(&w, fmt.Errorf("invalid file type, %v", err))
+		return ""
+	}
+	fileName := strings.Split(handler.Filename, ".")[0]
+	fileEndings, err := mime.ExtensionsByType(filetype)
+	if err != nil {
+		sendError(&w, fmt.Errorf("can't read file type, %v", err))
+		return ""
+	}
+	newPath := filepath.Join(uploadPath, fileName+fileEndings[0])
+	fmt.Printf("FileType: %s, File: %s\n", filetype, newPath)
+	logger.Logf("Saving file in path %v", newPath)
+
+	newFile, err := os.Create(newPath)
+	if err != nil {
+		sendError(&w, fmt.Errorf("can't write file type, %v", err))
+		return ""
+	}
+	defer newFile.Close()
+	if _, err := newFile.Write(fileBytes); err != nil {
+		sendError(&w, fmt.Errorf("can't write file type, %v", err))
+		return ""
+	}
+	return fileName + fileEndings[0]
 }
 
 // Start gossiper
@@ -187,6 +286,8 @@ func sendOk(w *http.ResponseWriter) {
 func sendError(w *http.ResponseWriter, msg error) {
 	(*w).WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(*w, "There was an error processing the request: %v\n", msg.Error())
+	fmt.Printf("There was an error processing the request: %v\n", msg.Error())
+
 }
 func readBody(w *http.ResponseWriter, r *http.Request) *map[string]interface{} {
 	var params map[string]interface{}

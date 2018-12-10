@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
-	"github.com/ageapps/Peerster/router"
-
-	"github.com/ageapps/Peerster/data"
 	"github.com/ageapps/Peerster/gossiper"
-	"github.com/ageapps/Peerster/logger"
-	"github.com/ageapps/Peerster/utils"
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/logger"
+	"github.com/ageapps/Peerster/pkg/router"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 var (
@@ -24,7 +24,7 @@ type StatusResponse struct {
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	logger.CreateLogger(name, address, true)
-	newGossiper, err := gossiper.NewGossiper(address, name, false)
+	newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
 	if err != nil {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
 		for _, gossiper := range serverGossiper {
@@ -36,23 +36,42 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 		return ""
 	}
 	serverGossiper[name] = newGossiper
-	serverGossiper[name].SetPeers(peers)
-	go serverGossiper[name].ListenToPeers()
-	serverGossiper[name].StartEntropyTimer()
-	serverGossiper[name].StartRouteTimer(5)
+	go serverGossiper[name].SetPeers(peers)
+	go func() {
+		if err := serverGossiper[name].ListenToPeers(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	return name
 }
 
 func getGossiperRoutes(name string) *router.RoutingTable {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	if reflect.ValueOf(serverGossiper[name]).IsNil() {
 		return nil
 	}
 
 	return serverGossiper[name].GetRoutes()
 }
 
+func indexFileInGossiper(name, file string) map[string]string {
+	if serverGossiper[name] == nil {
+		return nil
+	}
+
+	serverGossiper[name].IndexFile(file)
+	return getGossiperFiles(name)
+}
+
+func getGossiperFiles(name string) map[string]string {
+	if serverGossiper[name] == nil {
+		return nil
+	}
+	files := serverGossiper[name].GetFiles()
+	return files
+}
+
 func getGossiperMessages(name string) *[]data.RumorMessage {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	if reflect.ValueOf(serverGossiper[name]).IsNil() {
 		return nil
 	}
 	return serverGossiper[name].GetLatestMessages()
@@ -68,7 +87,7 @@ func getGossiperPeers(name string) *[]string {
 	if reflect.ValueOf(serverGossiper).IsNil() {
 		return nil
 	}
-	return serverGossiper[name].GetPeers()
+	return serverGossiper[name].GetPeerArray()
 }
 
 func getStatusResponse(name string) *StatusResponse {
@@ -114,6 +133,18 @@ func sendPrivateMessage(name, destination, msg string) bool {
 	newMsg := &data.Message{
 		Text:        msg,
 		Destination: destination,
+	}
+	serverGossiper[name].HandleClientMessage(newMsg)
+	return true
+}
+func sendFileRequest(name, destination, fileName, hash string) bool {
+	if reflect.ValueOf(serverGossiper).IsNil() {
+		return false
+	}
+	newMsg := &data.Message{
+		Destination: destination,
+		FileName:    fileName,
+		RequestHash: hash,
 	}
 	serverGossiper[name].HandleClientMessage(newMsg)
 	return true

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ageapps/Peerster/data"
-	"github.com/ageapps/Peerster/logger"
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/logger"
 )
 
 // PrivateStack struct
@@ -68,7 +68,7 @@ func (stack *PrivateStack) AddMessage(msg data.PrivateMessage) {
 			stack.Messages[msg.Origin] = append(messages, msg)
 		}
 	}
-	logger.Log(fmt.Sprintf("Message appended to stack Origin:%v ID:%v", msg.Origin, id))
+	logger.Log(fmt.Sprintf("Message appended to private stack Origin:%v ID:%v", msg.Origin, id))
 }
 
 // PrintStack func
