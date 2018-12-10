@@ -8,6 +8,8 @@ type Message struct {
 	RequestHash   string
 	IndexFilePath string
 	ID            uint32
+	Keywords      []string
+	Budget        uint64
 }
 
 // IsPrivate check if is private message
