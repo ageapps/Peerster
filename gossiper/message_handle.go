@@ -1,7 +1,10 @@
 package gossiper
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
+	"log"
 
 	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/logger"
@@ -16,7 +19,7 @@ func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, address s
 	gossiper.peerConection.BroadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, msg.RelayPeerAddr)
 }
 
-func (gossiper *Gossiper) handlePrivateMessage(msg *data.PrivateMessage, address string) {
+func (gossiper *Gossiper) handlePeerPrivateMessage(msg *data.PrivateMessage, address string) {
 	if msg.Destination == gossiper.Name {
 		gossiper.privateStack.AddMessage(*msg)
 		logger.LogPrivate(*msg)
@@ -132,5 +135,50 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 				handler.Reset()
 			}
 		}
+	}
+}
+
+func (gossiper *Gossiper) handleDataRequest(msg *data.DataRequest, address string) {
+	if msg.Destination == gossiper.Name {
+		ok, path := gossiper.fileExists(msg.HashValue.String())
+		if ok {
+			b, err := ioutil.ReadFile(path) // just pass the file name
+			if err != nil {
+				log.Fatal(err)
+			}
+			hashArr := sha256.Sum256(b)
+			var hash data.HashValue = hashArr[:]
+			msg := data.NewDataReply(gossiper.Name, msg.Origin, uint32(10), hash, b)
+			gossiper.sendDataReply(msg)
+			return
+		}
+		logger.Log("Requested file does not exist")
+		return
+	}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		gossiper.sendDataRequest(msg)
+	}
+}
+
+func (gossiper *Gossiper) handleDataReply(msg *data.DataReply, address string) {
+	// logger.Logf("handleDataReply %v/%v", msg.Destination, msg.Origin)
+
+	if msg.Destination == gossiper.Name {
+		if handler := gossiper.findDataHandler(msg.Origin); handler != nil {
+			chunk := data.Chunk{Data: msg.Data, Hash: msg.HashValue}
+			if chunk.Valid() {
+				handler.ChunkChannel <- chunk
+			} else {
+				logger.Logf("Data received from %v with hash %v is not valid", address, msg.HashValue.String())
+			}
+			return
+		}
+		logger.Logf("Data reply from %v with no handler...", address)
+		return
+	}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		gossiper.sendDataReply(msg)
 	}
 }

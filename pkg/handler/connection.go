@@ -14,10 +14,10 @@ import (
 // ConnectionHandler handles
 // all connections coding and decoding all packets
 type ConnectionHandler struct {
-	address *net.UDPAddr
-	conn    *net.UDPConn
-	Name    string
-	running bool
+	address      *net.UDPAddr
+	conn         *net.UDPConn
+	Name         string
+	running      bool
 	MessageQueue chan data.UDPMessage
 }
 
@@ -29,10 +29,10 @@ func NewConnectionHandler(address, name string, listenToPackets bool) (*Connecti
 	}
 
 	conHand := &ConnectionHandler{
-		address: udpAddr,
-		conn:    udpConn,
-		Name:    name,
-		running: false,
+		address:      udpAddr,
+		conn:         udpConn,
+		Name:         name,
+		running:      false,
 		MessageQueue: make(chan data.UDPMessage),
 	}
 
@@ -47,7 +47,7 @@ func (handler *ConnectionHandler) Close() {
 		logger.Log(fmt.Sprintln("Error closing connection", err))
 		// log.Fatal(err1)
 	}
-	close(handler.MessageQueue)
+	handler.Stop()
 }
 
 // CreateConnection in address
@@ -111,14 +111,14 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 	go func() {
 		udpaddr, err1 := net.ResolveUDPAddr("udp4", address)
 		if err1 != nil {
-			logger.Log("Error Resolving address")
+			logger.Logf("Error Resolving address %v", address)
 		}
 		packetBytes, err2 := protobuf.Encode(packet)
 		if err2 != nil {
-			logger.Log("Warning Encoding")
+			logger.Logf("Warning Encoding: %v", err2)
 		}
 		if _, err3 := handler.conn.WriteToUDP(packetBytes, udpaddr); err3 != nil {
-			logger.Log("Error Sending Packet")
+			logger.Logf("Error Sending Packet %v", err3)
 		}
 	}()
 	return nil
@@ -130,15 +130,15 @@ func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string,
 	if handler.conn == nil {
 		return "", errors.New("No connection")
 	}
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 65535)
 	_, address, err1 := handler.conn.ReadFromUDP(buffer)
 	if err1 != nil {
-		logger.Log("Error Reading packet")
+		logger.Log("Error Reading packet UDP")
 		return "", err1
 	}
 	err2 := protobuf.Decode(buffer, packet)
 	if err2 != nil {
-		// logger.Log("Warning Decoding")
+		logger.Logf("Warning Decoding: %v", err2)
 	}
 	return address.String(), nil
 }

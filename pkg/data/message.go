@@ -7,18 +7,26 @@ type UDPMessage struct {
 	Message Message
 }
 
+type DataRequest struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	HashValue   HashValue
+}
+
+type DataReply struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	HashValue   HashValue
+	Data        []byte
+}
+
 // SimpleMessage struct
 type SimpleMessage struct {
 	OriginalName  string
 	RelayPeerAddr string
 	Contents      string
-}
-
-// Message to send
-type Message struct {
-	Text        string
-	Destination string
-	ID          uint32
 }
 
 // PrivateMessage to send
@@ -46,9 +54,4 @@ type PeerStatus struct {
 // IsRouteRumor check if Rumor is a route message
 func (rumor *RumorMessage) IsRouteRumor() bool {
 	return rumor.Text == ""
-}
-
-// IsPrivate check if is private message
-func (msg *Message) IsPrivate() bool {
-	return msg.Destination != ""
 }

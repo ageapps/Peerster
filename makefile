@@ -1,6 +1,8 @@
 t = 3 # timer
-n= 4 # node number
-
+n = 4 # node number
+f = test.png
+h = 13fa82c9e76e18e1e8587231be1aa955f3469a20a1b085a28326339f36108ddd
+d = nodeC
 
 build:
 	go build .
@@ -25,13 +27,13 @@ run3:
 	go run --race . -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5001 -rtimer=3
 
 send:
-	go run --race ./client -UIPort=10000 -msg=Hello
+	go run --race ./client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
 
 serve:
 	cd ./server && go run --race .
 
 private:
-	go run --race ./client -UIPort=10002 -msg=Hello -dest=nodeA
+	go run --race ./client -UIPort=10002 -msg=Hello -Dest=$(d)
 	
 front:	
 	location=~/git/Peerster-App; \
@@ -44,4 +46,7 @@ test1:
 
 test2:
 	sh test/test_2_ring.sh
-  
+
+cchunks:
+	rm ./._Chunks/*
+	rm ./._Metafiles/*

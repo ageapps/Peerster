@@ -46,15 +46,32 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 }
 
 func getGossiperRoutes(name string) *router.RoutingTable {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	if reflect.ValueOf(serverGossiper[name]).IsNil() {
 		return nil
 	}
 
 	return serverGossiper[name].GetRoutes()
 }
 
+func indexFileInGossiper(name, file string) map[string]string {
+	if serverGossiper[name] == nil {
+		return nil
+	}
+
+	serverGossiper[name].IndexFile(file)
+	return getGossiperFiles(name)
+}
+
+func getGossiperFiles(name string) map[string]string {
+	if serverGossiper[name] == nil {
+		return nil
+	}
+	files := serverGossiper[name].GetFiles()
+	return files
+}
+
 func getGossiperMessages(name string) *[]data.RumorMessage {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	if reflect.ValueOf(serverGossiper[name]).IsNil() {
 		return nil
 	}
 	return serverGossiper[name].GetLatestMessages()
@@ -116,6 +133,18 @@ func sendPrivateMessage(name, destination, msg string) bool {
 	newMsg := &data.Message{
 		Text:        msg,
 		Destination: destination,
+	}
+	serverGossiper[name].HandleClientMessage(newMsg)
+	return true
+}
+func sendFileRequest(name, destination, fileName, hash string) bool {
+	if reflect.ValueOf(serverGossiper).IsNil() {
+		return false
+	}
+	newMsg := &data.Message{
+		Destination: destination,
+		FileName:    fileName,
+		RequestHash: hash,
 	}
 	serverGossiper[name].HandleClientMessage(newMsg)
 	return true

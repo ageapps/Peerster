@@ -48,7 +48,28 @@ func (gossiper *Gossiper) broadcastRouteRumorMessage(destinationAdress string) {
 func (gossiper *Gossiper) sendPrivateMessage(msg *data.PrivateMessage) {
 	packet := &data.GossipPacket{Private: msg}
 	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
-		logger.Log(fmt.Sprintf("Sending PRIVATE Dest:%v", msg.Destination))
+		logger.Logf("Sending PRIVATE Dest:%v", msg.Destination)
 		gossiper.peerConection.SendPacketToPeer(destinationAdress.String(), packet)
+	} else {
+		logger.Logf("INVALID PRIVATE Dest:%v", msg.Destination)
+	}
+}
+
+func (gossiper *Gossiper) sendDataRequest(msg *data.DataRequest) {
+	packet := &data.GossipPacket{DataRequest: msg}
+	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
+		logger.Log(fmt.Sprintf("Sending DATA REQUEST Dest:%v", msg.Destination))
+		gossiper.peerConection.SendPacketToPeer(destinationAdress.String(), packet)
+	} else {
+		logger.Logf("INVALID DATA REQUEST Dest:%v", msg.Destination)
+	}
+}
+func (gossiper *Gossiper) sendDataReply(msg *data.DataReply) {
+	packet := &data.GossipPacket{DataReply: msg}
+	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
+		logger.Log(fmt.Sprintf("Sending DATA REPLY Dest:%v", msg.Destination))
+		gossiper.peerConection.SendPacketToPeer(destinationAdress.String(), packet)
+	} else {
+		logger.Logf("INVALID DATA REPLY Dest:%v", msg.Destination)
 	}
 }

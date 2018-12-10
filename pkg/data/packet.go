@@ -9,14 +9,20 @@ const (
 	PACKET_STATUS = "STATUS"
 	// PACKET_PRIVATE type
 	PACKET_PRIVATE = "PRIVATE"
+	// PACKET_PRIVATE type
+	PACKET_DATA_REQUEST = "DATA_REQUEST"
+	// PACKET_PRIVATE type
+	PACKET_DATA_REPLY = "DATA_REPLY"
 )
 
 // GossipPacket struct
 type GossipPacket struct {
-	Simple  *SimpleMessage
-	Rumor   *RumorMessage
-	Status  *StatusPacket
-	Private *PrivateMessage
+	Simple      *SimpleMessage
+	Rumor       *RumorMessage
+	Status      *StatusPacket
+	Private     *PrivateMessage
+	DataRequest *DataRequest
+	DataReply   *DataReply
 }
 
 // StatusPacket to send
@@ -52,6 +58,16 @@ func NewPrivateMessage(origin string, ID uint32, destination, text string, hops 
 	return &PrivateMessage{origin, ID, destination, text, hops}
 }
 
+// NewDataRequest create
+func NewDataRequest(origin, destination string, hops uint32, hash HashValue) *DataRequest {
+	return &DataRequest{origin, destination, hops, hash}
+}
+
+// NewDataRequest create
+func NewDataReply(origin, destination string, hops uint32, hash HashValue, data []byte) *DataReply {
+	return &DataReply{origin, destination, hops, hash, data}
+}
+
 // IsRouteStatus create
 func (status *StatusPacket) IsRouteStatus() bool {
 	return status.Route != ""
@@ -60,14 +76,18 @@ func (status *StatusPacket) IsRouteStatus() bool {
 // GetPacketType function
 func (packet *GossipPacket) GetPacketType() string {
 	switch {
-	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil:
+	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
 		return PACKET_RUMOR
-	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil && packet.Private == nil:
+	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
 		return PACKET_STATUS
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil && packet.Private == nil:
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
 		return PACKET_SIMPLE
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private != nil:
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private != nil && packet.DataReply == nil && packet.DataRequest == nil:
 		return PACKET_PRIVATE
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply != nil && packet.DataRequest == nil:
+		return PACKET_DATA_REPLY
+	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest != nil:
+		return PACKET_DATA_REQUEST
 	default:
 		return ""
 	}

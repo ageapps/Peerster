@@ -42,7 +42,7 @@ type MongerHandler struct {
 	timer                  *time.Timer
 	quitChannel            chan bool
 	resetChannel           chan bool
-	StopChannel           chan bool
+	StopChannel            chan bool
 	usedPeers              *map[string]bool
 }
 
@@ -63,8 +63,8 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 		peers:                  connectPeers,
 		timer:                  &time.Timer{},
 		quitChannel:            make(chan bool),
-		StopChannel:            make(chan bool),
 		resetChannel:           make(chan bool),
+		StopChannel:            make(chan bool),
 		usedPeers:              &used,
 	}
 }
@@ -100,14 +100,14 @@ func (handler *MongerHandler) Start() {
 	}()
 }
 
-func newTimer() *time.Timer {
+func (handler *MongerHandler) newTimer() *time.Timer {
 	// logger.Log("Launching new timer")
 	return time.NewTimer(1 * time.Second)
 }
 
 func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 	if peer := handler.GetPeers().GetRandomPeer(*handler.usedPeers); peer != nil {
-		handler.timer = newTimer()
+		handler.timer = handler.newTimer()
 		handler.setMonguerPeer(peer.String())
 		handler.addUsedPeer(peer.String())
 		// logger.Log(fmt.Sprint("Monguering with peer: ", peer.String()))

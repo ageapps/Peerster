@@ -16,6 +16,7 @@ var routes = Routes{
 	// Route{"Index", "GET", "/", Index},
 	Route{"Messages", "GET", "/message", GetMessages},
 	Route{"Routes", "GET", "/routes", GetRoutes},
+	Route{"Routes", "GET", "/files", GetFiles},
 	Route{"Private Messages", "GET", "/private", GetPrivateMessages},
 	Route{"Nodes", "GET", "/node", GetNodes},
 	Route{"ID", "GET", "/id", GetID},
@@ -26,4 +27,5 @@ var routes = Routes{
 	Route{"Start", "POST", "/start", Start},
 	Route{"Delete", "POST", "/delete", Delete},
 	Route{"Upload", "POST", "/upload", Upload},
+	Route{"Upload", "POST", "/request", PostRequest},
 }
