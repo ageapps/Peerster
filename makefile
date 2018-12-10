@@ -38,8 +38,8 @@ private:
 front:	
 	location=~/git/Peerster-App; \
 	current=$(shell pwd) && cd $$location && npm run build && cd $$current; \
-	bash -c "rm -r app/*"; \
-	cp -R $$location/dist/* ./app 
+	bash -c "rm -r web/*"; \
+	cp -R $$location/dist/* ./web 
 
 test1:
 	sh test/test_1_ring.sh
