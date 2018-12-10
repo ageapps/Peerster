@@ -13,6 +13,7 @@ import (
 // Routes arr
 type Routes []Route
 
+// MAX_UPLOAD_SIZE contant
 const MAX_UPLOAD_SIZE = 1000 * 1024 // 10 MB
 var uploadPath = path.Join(utils.GetRootPath(), file.SharedFilesDir)
 

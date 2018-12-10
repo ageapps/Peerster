@@ -79,8 +79,8 @@ func (handler *DataHandler) getTimer() *time.Timer {
 	return handler.timer
 }
 
+// Start handler
 func (handler *DataHandler) Start() {
-
 	go handler.resetTimer()
 	handler.sendRequest()
 	handler.handleTimeout()
@@ -88,7 +88,7 @@ func (handler *DataHandler) Start() {
 		for chunk := range handler.ChunkChannel {
 			go handler.resetTimer()
 			handler.handleTimeout()
-			logger.Logf("RECIEVED CHUNK")
+			logger.Logf("RECEIVED CHUNK")
 
 			// First chunk received is the metafile
 			if !handler.gotMetafile && chunk.Data != nil {
@@ -122,13 +122,17 @@ func (handler *DataHandler) Start() {
 
 }
 
+// GetMetaHashStr get
 func (handler *DataHandler) GetMetaHashStr() string {
 	return handler.metaHash.String()
 }
+
+// GetFile get
 func (handler *DataHandler) GetFile() *file.File {
 	return handler.file
 }
 
+// GetCurrentPeer get
 func (handler *DataHandler) GetCurrentPeer() string {
 	return handler.currentPeer
 }

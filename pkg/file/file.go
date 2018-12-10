@@ -11,9 +11,15 @@ import (
 	"github.com/ageapps/Peerster/pkg/utils"
 )
 
+// SharedFilesDir directory where shared files are stored
 const SharedFilesDir = "_SharedFiles"
+
+// ChunksDir directory where Chunks are stored
 const ChunksDir = "._Chunks"
+
+// DownloadsDir directory where reconstructed files are stored
 const DownloadsDir = "_Downloads"
+
 const metafileDir = "._Metafiles"
 
 // File struct
@@ -56,6 +62,7 @@ func NewFileFromLocalSync(name string) (*File, error) {
 	}, nil
 }
 
+// NewDownloadingFile create
 func NewDownloadingFile(name string) *File {
 	metadata, err := newMetadata(name, false)
 	if err != nil {
@@ -68,21 +75,27 @@ func NewDownloadingFile(name string) *File {
 	}
 }
 
+// AddChunk to metadata
 func (file *File) AddChunk(chunk []byte, hash data.HashValue) error {
 	return file.metadata.addChunk(chunk, hash)
 }
 
+// AddMetafile to metadata
 func (file *File) AddMetafile(chunk []byte, hash data.HashValue) error {
 	return file.metadata.addMetafile(chunk, hash)
 }
 
+// GetChunkHash get hash of chunk
 func (file *File) GetChunkHash(index int) data.HashValue {
 	return file.metadata.fileHashes[index]
 }
+
+// GetMetaHash of metadata
 func (file *File) GetMetaHash() string {
 	return file.metadata.metahash.String()
 }
 
+// Reconstruct file from metadata
 func (file *File) Reconstruct() error {
 	var buffer []byte
 	logger.Logf("Reconstructing file: %v, chunks: %v", file.Name, len(file.metadata.fileHashes))

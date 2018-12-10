@@ -7,6 +7,7 @@ type UDPMessage struct {
 	Message Message
 }
 
+// DataRequest struct
 type DataRequest struct {
 	Origin      string
 	Destination string
@@ -14,6 +15,7 @@ type DataRequest struct {
 	HashValue   HashValue
 }
 
+// DataReply struct
 type DataReply struct {
 	Origin      string
 	Destination string

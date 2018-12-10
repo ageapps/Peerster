@@ -27,8 +27,10 @@ type Metadata struct {
 	mux        sync.Mutex
 }
 
+// SHAhashSize size of SHA hash
 const SHAhashSize = sha256.Size
 
+// ChunckSize Size of chunks files are splitted to
 var ChunckSize int64 = 8192 // 8kb
 
 func newMetadata(filename string, local bool) (*Metadata, error) {

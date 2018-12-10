@@ -58,6 +58,8 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	send(&w, getGossiperRoutes(name))
 }
+
+// GetFiles func
 func GetFiles(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
@@ -114,7 +116,7 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 	send(&w, getGossiperMessages(name))
 }
 
-// PostPrivateMessage func
+// PostRequest func
 func PostRequest(w http.ResponseWriter, r *http.Request) {
 	params := *readBody(&w, r)
 	name, ok := params["name"].(string)

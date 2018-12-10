@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 )
 
+// Chunk struct
 type Chunk struct {
 	Data []byte
 	Hash HashValue
 }
 
+// Valid check
 func (chunk *Chunk) Valid() bool {
 	hashArr := sha256.Sum256(chunk.Data)
 	var hash HashValue = hashArr[:]

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"fmt"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/pkg/logger"
@@ -39,7 +38,7 @@ func main() {
 	}
 	go gossiper.SetPeers(&peers)
 	go gossiper.ListenToClients(*UIPort)
-	if err := gossiper.ListenToPeers(); err != nil{
-		fmt.Errorf("could not start listening to peers: %v", err)
+	if err := gossiper.ListenToPeers(); err != nil {
+		log.Fatal(err)
 	}
 }

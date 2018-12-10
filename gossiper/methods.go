@@ -65,16 +65,22 @@ func (gossiper *Gossiper) GetPeers() *utils.PeerAddresses {
 	defer gossiper.mux.Unlock()
 	return gossiper.peers
 }
+
+// IsRunning gossiper
 func (gossiper *Gossiper) IsRunning() bool {
 	gossiper.mux.Lock()
 	defer gossiper.mux.Unlock()
 	return gossiper.running
 }
+
+// Stop gossiper
 func (gossiper *Gossiper) Stop() {
 	gossiper.mux.Lock()
 	gossiper.running = false
 	gossiper.mux.Unlock()
 }
+
+// GetFiles map <metahash>:name
 func (gossiper *Gossiper) GetFiles() map[string]string {
 	gossiper.mux.Lock()
 	defer gossiper.mux.Unlock()
@@ -85,6 +91,8 @@ func (gossiper *Gossiper) GetFiles() map[string]string {
 	}
 	return files
 }
+
+// IndexFile into gossiper
 func (gossiper *Gossiper) IndexFile(name string) {
 	file, err := file.NewFileFromLocalSync(name)
 	if err != nil {

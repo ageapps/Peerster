@@ -9,9 +9,9 @@ const (
 	PACKET_STATUS = "STATUS"
 	// PACKET_PRIVATE type
 	PACKET_PRIVATE = "PRIVATE"
-	// PACKET_PRIVATE type
+	// PACKET_DATA_REQUEST type
 	PACKET_DATA_REQUEST = "DATA_REQUEST"
-	// PACKET_PRIVATE type
+	// PACKET_DATA_REPLY type
 	PACKET_DATA_REPLY = "DATA_REPLY"
 )
 
@@ -63,7 +63,7 @@ func NewDataRequest(origin, destination string, hops uint32, hash HashValue) *Da
 	return &DataRequest{origin, destination, hops, hash}
 }
 
-// NewDataRequest create
+// NewDataReply create
 func NewDataReply(origin, destination string, hops uint32, hash HashValue, data []byte) *DataReply {
 	return &DataReply{origin, destination, hops, hash, data}
 }

@@ -50,3 +50,6 @@ test2:
 cchunks:
 	rm ./._Chunks/*
 	rm ./._Metafiles/*
+
+lint:
+	golint ./...
