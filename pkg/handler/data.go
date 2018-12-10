@@ -97,6 +97,7 @@ func (handler *DataHandler) Start() {
 				}
 				logger.Logf("Saved Metafile: %v", chunk.Hash.String())
 				handler.gotMetafile = true
+				logger.LogMetafile(handler.file.Name, handler.currentPeer)
 				handler.sendRequest()
 				// Normal chunk received
 			} else {
@@ -104,6 +105,7 @@ func (handler *DataHandler) Start() {
 					log.Fatal(err)
 				}
 				logger.Logf("Added Chunk: %v", chunk.Hash.String())
+				logger.LogChunk(handler.file.Name, handler.currentPeer, handler.chunk)
 				handler.chunk++
 				if int64(len(chunk.Data)) < file.ChunckSize {
 					// last chunk of file

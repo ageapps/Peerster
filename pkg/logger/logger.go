@@ -77,6 +77,16 @@ func LogPrivate(msg data.PrivateMessage) {
 	fmt.Printf("PRIVATE origin %v hop-limit %v contents %v \n", msg.Origin, msg.HopLimit, msg.Text)
 }
 
+// LogMetafile func
+func LogMetafile(filename, peer string) {
+	fmt.Printf("DOWNLOADING metafile of %v from %v \n", filename, peer)
+}
+
+// LogChunk func
+func LogChunk(filename, peer string, chunk int) {
+	fmt.Printf("DOWNLOADING %v chunk %v from %v \n", filename, chunk, peer)
+}
+
 // CreateLogger func
 func CreateLogger(name, address string, debug bool) {
 	instance.name = name
