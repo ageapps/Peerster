@@ -137,7 +137,7 @@ func PostRequest(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error while sending new request"))
 		return
 	}
-	send(&w, getGossiperMessages(name))
+	send(&w, getGossiperFiles(name))
 }
 
 // PostNode func

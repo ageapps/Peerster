@@ -33,7 +33,7 @@ func NewRouter() *mux.Router {
 	}
 
 	fsWeb := http.FileServer(http.Dir("../web/"))
-	fsFiles := http.FileServer(http.Dir("../" + file.SharedFilesDir + "/"))
+	fsFiles := http.FileServer(http.Dir("../" + file.DownloadsDir + "/"))
 	router.PathPrefix("/files/").Handler(http.StripPrefix("/files/", fsFiles))
 
 	router.PathPrefix("/").Handler(fsWeb)

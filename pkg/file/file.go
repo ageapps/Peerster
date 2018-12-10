@@ -13,7 +13,7 @@ import (
 
 const SharedFilesDir = "_SharedFiles"
 const ChunksDir = "._Chunks"
-const downloadsDir = "_Downloads"
+const DownloadsDir = "_Downloads"
 const metafileDir = "._Metafiles"
 
 // File struct
@@ -57,7 +57,7 @@ func NewFileFromLocalSync(name string) (*File, error) {
 }
 
 func NewDownloadingFile(name string) *File {
-	metadata, err := newMetadata(name, true)
+	metadata, err := newMetadata(name, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func (file *File) Reconstruct() error {
 		buffer = append(buffer, b...)
 	}
 
-	filePath := path.Join(utils.GetFilesPath(), downloadsDir, file.Name)
+	filePath := path.Join(utils.GetFilesPath(), DownloadsDir, file.Name)
 	if err := file.metadata.saveFile(filePath, buffer); err != nil {
 		return fmt.Errorf("Error writing reconstructed file : %v", err)
 	}

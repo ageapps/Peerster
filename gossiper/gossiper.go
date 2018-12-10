@@ -114,7 +114,8 @@ func (gossiper *Gossiper) ListenToClients(port int) {
 
 // HandleClientMessage handles client messages
 func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
-	// logger.Log("Message received from client")
+
+	logger.Logf("Message received from client index: %v, private: %v, request: %v", msg.FileToIndex(), msg.IsPrivate(), msg.HasRequest())
 
 	if msg.FileToIndex() {
 		gossiper.IndexFile(msg.FileName)
@@ -143,10 +144,13 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 
 func (gossiper *Gossiper) handleClientPrivateMessage(msg *data.Message) {
 	if msg.HasRequest() {
+		logger.Log("Starting DATA 1 - " + msg.RequestHash)
 		hash, err := data.GetHash(msg.RequestHash)
 		if err != nil {
 			log.Fatal(err)
 		}
+		logger.Log("Starting DATA 2 - " + msg.RequestHash)
+
 		dataProcess := handler.NewDataHandler(msg.FileName, gossiper.Name, msg.Destination, hash, gossiper.peerConection, gossiper.router)
 		logger.Log("Starting DATA process - " + msg.RequestHash)
 		gossiper.addDataProcess(dataProcess)
