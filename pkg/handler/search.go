@@ -83,6 +83,7 @@ func (handler *SearchHandler) Start(onStopHandler func(map[string]*data.FileResu
 			case reply := <-handler.ReplyChannel:
 				for _, result := range reply.Results {
 					handler.matchedDestinations[result.FileName] = data.NewFileResult(result.FileName, reply.Origin, result.MetafileHash)
+					logger.LogFound(result.FileName, reply.Origin, result.MetafileHash.String(), result.ChunkMap)
 				}
 				nrMatches := len(handler.matchedDestinations)
 				if nrMatches >= MatchThreshold {

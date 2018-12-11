@@ -47,7 +47,6 @@ func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
 		_, found = gossiper.monguerPocesses[name]
 		gossiper.monguerPocesses[name] = nil
 		delete(gossiper.monguerPocesses, name)
-
 	case PROCESS_DATA:
 		_, found = gossiper.dataProcesses[name]
 		gossiper.dataProcesses[name] = nil

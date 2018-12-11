@@ -3,6 +3,8 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"hash/fnv"
 )
 
 // Chunk struct
@@ -46,9 +48,12 @@ func GetHash(value string) (HashValue, error) {
 }
 
 // MakeHashString returns a HashValue
-func MakeHashString(value string) (string, error) {
-	hashArr := sha256.Sum256([]byte(value))
-	var hash HashValue
-	hash = hashArr[:]
-	return hash.String(), hash.Set(value)
+func MakeHashString(value string) string {
+	h := fnv.New32a()
+	h.Write([]byte(value))
+	return fmt.Sprint(h.Sum32())
+	// hashArr := sha256.Sum256([]byte(value))
+	// var hash HashValue
+	// hash = hashArr[:]
+	// return hash.String(), hash.Set(string(hash))
 }

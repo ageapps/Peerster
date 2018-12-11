@@ -20,7 +20,7 @@ var (
 func sendMessage(msg, dest, file, index, requestHash string, budget int, keywords []string) error {
 	fmt.Println("Sending <" + msg + "> to address " + serverAdress.String())
 	fmt.Println("Text: " + msg)
-	fmt.Println("Destination: " + file)
+	fmt.Println("Destination: " + dest)
 	fmt.Println("FileName: " + index)
 	fmt.Println("IndexFilePath: " + requestHash)
 	fmt.Printf("Keywords: %v\n", keywords)

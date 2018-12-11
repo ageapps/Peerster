@@ -23,7 +23,7 @@ type StatusResponse struct {
 }
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
-	logger.CreateLogger(name, address, true)
+	logger.CreateLogger(name, address, false)
 	newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
 	if err != nil {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))

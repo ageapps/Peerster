@@ -159,5 +159,6 @@ func (file *File) Reconstruct() error {
 		return fmt.Errorf("Error writing reconstructed file : %v", err)
 	}
 	logger.Logf("Reconstructed file saved in: %v", filePath)
+	logger.LogReconstructed(file.Name)
 	return nil
 }

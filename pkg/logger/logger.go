@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/ageapps/Peerster/pkg/data"
 )
@@ -85,6 +86,17 @@ func LogMetafile(filename, peer string) {
 // LogChunk func
 func LogChunk(filename, peer string, chunk int) {
 	fmt.Printf("DOWNLOADING %v chunk %v from %v \n", filename, chunk, peer)
+}
+
+// LogReconstructed func
+func LogReconstructed(filename string) {
+	fmt.Printf("RECONSTRUCTED file %v \n", filename)
+}
+
+// LogFound func
+func LogFound(filename, origin, metafile string, chunks []uint64) {
+	indexes := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(chunks)), ","), "[]")
+	fmt.Printf("FPUND match %v at %v metafile=%v chunks=%v\n", filename, origin, metafile, indexes)
 }
 
 // CreateLogger func

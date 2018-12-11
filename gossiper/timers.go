@@ -13,7 +13,7 @@ func (gossiper *Gossiper) StartEntropyTimer() {
 	for gossiper.IsRunning() {
 		usedPeers := gossiper.GetUsedPeers()
 
-		if len(usedPeers) >= len(gossiper.peers.GetAdresses()) {
+		if len(usedPeers) >= len(gossiper.GetPeers().GetAdresses()) {
 			// logger.Log("Entropy Timer - All peers where notified")
 		}
 		if newpeer := gossiper.GetPeers().GetRandomPeer(usedPeers); newpeer != nil {

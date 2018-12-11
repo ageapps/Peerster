@@ -203,10 +203,10 @@ func (gossiper *Gossiper) handleSearchReply(msg *data.SearchReply, address strin
 
 func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address string) {
 	// Message has keyboards to search
-	name, err := utils.MakeHashString(strings.Join(msg.Keywords[:], ","))
-	if err != nil {
-		log.Fatal(err)
-	}
+	name := utils.MakeHashString(strings.Join(msg.Keywords[:], ","))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	if !gossiper.duplicateProcess(name, PROCESS_SEARCH) {
 		var results []*data.SearchResult
 		for _, keyword := range msg.Keywords {

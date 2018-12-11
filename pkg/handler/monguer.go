@@ -72,7 +72,7 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 // Start monguering process
 func (handler *MongerHandler) Start(onStopHandler func()) {
 	go func() {
-		go handler.setActive(true)
+		handler.setActive(true)
 		handler.monguerWithPeer(false)
 		for {
 			select {
@@ -144,6 +144,8 @@ func (handler *MongerHandler) Stop() {
 		logger.Logf("Stopping monger handler - %v", handler.Name)
 		handler.setActive(false)
 		close(handler.quitChannel)
+	} else {
+		logger.Log("Monguer process is not active...")
 	}
 }
 

@@ -15,7 +15,7 @@ clean:
 	go clean ./server/
 
 run:
-	go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)
+	@sum=`expr $(n) - 1`; echo $$sum; go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)  -peers=127.0.0.1:500$$sum
 
 run1:
 	go run --race . -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -rtimer=3
@@ -28,6 +28,10 @@ run3:
 
 send1:
 	go run --race ./client -UIPort=10000 -msg=Hello
+send2:
+	go run --race ./client -UIPort=10001 -msg=Hello
+send3:
+	go run --race ./client -UIPort=10002 -msg=Hello
 
 send:
 	go run --race ./client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
@@ -56,3 +60,6 @@ cchunks:
 
 lint:
 	golint ./...
+
+kill:
+	kill $(lsof -t -i :5000)

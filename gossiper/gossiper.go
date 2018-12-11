@@ -198,8 +198,12 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 
 func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string, routerMonguering bool) {
 	gossiper.mux.Lock()
-	processName := fmt.Sprint(len(gossiper.monguerPocesses), "/", routerMonguering)
-	monguerProcess := handler.NewMongerHandler(originPeer, processName, routerMonguering, msg, gossiper.peerConection, gossiper.peers)
+	// name := utils.MakeHashString(fmt.Sprint(len(gossiper.monguerPocesses), r.Int(), routerMonguering))
+	name := fmt.Sprint(len(gossiper.monguerPocesses), "/", routerMonguering)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	monguerProcess := handler.NewMongerHandler(originPeer, name, routerMonguering, msg, gossiper.peerConection, gossiper.peers)
 	gossiper.mux.Unlock()
 
 	gossiper.registerProcess(monguerProcess, PROCESS_MONGUER)
@@ -209,10 +213,10 @@ func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer strin
 }
 
 func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64) {
-	name, err := utils.MakeHashString(strings.Join(keywords[:], ","))
-	if err != nil {
-		log.Fatal(err)
-	}
+	name := utils.MakeHashString(strings.Join(keywords[:], ","))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	searchProcess := handler.NewSearchHandler(name, budget, gossiper.Name, keywords, gossiper.peerConection, gossiper.router)
 
 	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
