@@ -30,6 +30,7 @@ var usedPeers = make(map[string]bool)
 // resetChannel           chan bool
 //
 type MongerHandler struct {
+	originPeer             string
 	Name                   string
 	currentMessage         *data.RumorMessage
 	currentPeer            string
@@ -42,7 +43,6 @@ type MongerHandler struct {
 	timer                  *time.Timer
 	quitChannel            chan bool
 	resetChannel           chan bool
-	StopChannel            chan bool
 	usedPeers              *map[string]bool
 }
 
@@ -53,6 +53,7 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 		used[originPeer] = true
 	}
 	return &MongerHandler{
+		originPeer:             originPeer,
 		Name:                   nameStr,
 		currentMessage:         msg,
 		currentPeer:            "",
@@ -64,13 +65,12 @@ func NewMongerHandler(originPeer, nameStr string, isRouter bool, msg *data.Rumor
 		timer:                  &time.Timer{},
 		quitChannel:            make(chan bool),
 		resetChannel:           make(chan bool),
-		StopChannel:            make(chan bool),
 		usedPeers:              &used,
 	}
 }
 
 // Start monguering process
-func (handler *MongerHandler) Start() {
+func (handler *MongerHandler) Start(onStopHandler func()) {
 	go func() {
 		go handler.setActive(true)
 		handler.monguerWithPeer(false)
@@ -79,12 +79,6 @@ func (handler *MongerHandler) Start() {
 			case <-handler.resetChannel:
 				logger.Log("Restarting monger handler - " + handler.Name)
 				handler.monguerWithPeer(true)
-			case <-handler.quitChannel:
-				logger.Log("Finishing monger handler - " + handler.Name)
-				if handler.timer.C != nil {
-					handler.timer.Stop()
-				}
-				return
 			case <-handler.timer.C:
 				// Flip coin
 				if !handler.isSynking() {
@@ -92,9 +86,18 @@ func (handler *MongerHandler) Start() {
 					if !keepRumorering() {
 						handler.Stop()
 					} else {
+						handler.resetUsedPeers()
 						handler.monguerWithPeer(true)
 					}
 				}
+			case <-handler.quitChannel:
+				logger.Log("Finishing monger handler - " + handler.Name)
+				if handler.timer.C != nil {
+					handler.timer.Stop()
+				}
+				close(handler.resetChannel)
+				onStopHandler()
+				return
 			}
 		}
 	}()
@@ -103,6 +106,17 @@ func (handler *MongerHandler) Start() {
 func (handler *MongerHandler) newTimer() *time.Timer {
 	// logger.Log("Launching new timer")
 	return time.NewTimer(1 * time.Second)
+}
+
+func (handler *MongerHandler) resetUsedPeers() {
+	handler.mux.Lock()
+	defer handler.mux.Unlock()
+
+	used := make(map[string]bool)
+	if handler.originPeer != "" {
+		used[handler.originPeer] = true
+	}
+	handler.usedPeers = &used
 }
 
 func (handler *MongerHandler) monguerWithPeer(flipped bool) {
@@ -126,14 +140,11 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 
 // Stop handler
 func (handler *MongerHandler) Stop() {
-	handler.mux.Lock()
-	defer handler.mux.Unlock()
-	logger.Log("Stopping monger handler")
-	go handler.setActive(false)
-	go func() {
+	if handler.IsActive() {
+		logger.Logf("Stopping monger handler - %v", handler.Name)
+		handler.setActive(false)
 		close(handler.quitChannel)
-		close(handler.StopChannel)
-	}()
+	}
 }
 
 // Reset handler

@@ -1,4 +1,4 @@
-package data
+package utils
 
 import (
 	"crypto/sha256"
@@ -43,4 +43,12 @@ func (hash *HashValue) Equals(value string) bool {
 func GetHash(value string) (HashValue, error) {
 	var hash HashValue
 	return hash, hash.Set(value)
+}
+
+// MakeHashString returns a HashValue
+func MakeHashString(value string) (string, error) {
+	hashArr := sha256.Sum256([]byte(value))
+	var hash HashValue
+	hash = hashArr[:]
+	return hash.String(), hash.Set(value)
 }

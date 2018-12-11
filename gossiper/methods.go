@@ -7,7 +7,6 @@ import (
 	"github.com/ageapps/Peerster/pkg/file"
 
 	"github.com/ageapps/Peerster/pkg/data"
-	"github.com/ageapps/Peerster/pkg/handler"
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/router"
 	"github.com/ageapps/Peerster/pkg/utils"
@@ -20,6 +19,9 @@ func (gossiper *Gossiper) Kill() {
 	}
 	logger.Log("Finishing Gossiper " + gossiper.Name)
 	for _, process := range gossiper.getMongerProcesses() {
+		process.Stop()
+	}
+	for _, process := range gossiper.getDataProcesses() {
 		process.Stop()
 	}
 	gossiper.peerConection.Close()
@@ -92,6 +94,13 @@ func (gossiper *Gossiper) GetFiles() map[string]string {
 	return files
 }
 
+// GetIndexedFiles func
+func (gossiper *Gossiper) GetIndexedFiles() map[string]*file.File {
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+	return gossiper.indexedFiles
+}
+
 // IndexFile into gossiper
 func (gossiper *Gossiper) IndexFile(name string) {
 	file, err := file.NewFileFromLocalSync(name)
@@ -109,45 +118,11 @@ func (gossiper *Gossiper) GetRoutes() *router.RoutingTable {
 	return gossiper.router.GetTable()
 }
 
-func (gossiper *Gossiper) deleteMongerProcess(name string) {
-	gossiper.mux.Lock()
-	logger.Log(fmt.Sprintf("Deleting monguer - %v", name))
-	gossiper.monguerPocesses[name] = nil // free for garbage collection
-	delete(gossiper.monguerPocesses, name)
-	gossiper.mux.Unlock()
-}
-func (gossiper *Gossiper) deleteDataProcess(name string) {
-	gossiper.mux.Lock()
-	logger.Log(fmt.Sprintf("Deleting data - %v", name))
-	gossiper.dataProcesses[name] = nil // free for garbage collection
-	delete(gossiper.dataProcesses, name)
-	gossiper.mux.Unlock()
-}
-func (gossiper *Gossiper) getMongerProcesses() map[string]*handler.MongerHandler {
-	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	return gossiper.monguerPocesses
-}
-func (gossiper *Gossiper) getDataProcesses() map[string]*handler.DataHandler {
-	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	return gossiper.dataProcesses
-}
-func (gossiper *Gossiper) addMongerProcess(process *handler.MongerHandler) {
-	gossiper.mux.Lock()
-	gossiper.monguerPocesses[process.Name] = process
-	gossiper.mux.Unlock()
-}
-func (gossiper *Gossiper) addDataProcess(process *handler.DataHandler) {
-	gossiper.mux.Lock()
-	gossiper.dataProcesses[process.GetCurrentPeer()] = process
-	gossiper.mux.Unlock()
-}
-
 func (gossiper *Gossiper) addFile(newFile *file.File) {
 	logger.Logf("Indexing new file : %v", newFile.Name)
 	gossiper.mux.Lock()
-	gossiper.indexedFiles[newFile.GetMetaHash()] = newFile
+	hash := newFile.GetMetaHash()
+	gossiper.indexedFiles[hash.String()] = newFile
 	gossiper.mux.Unlock()
 }
 

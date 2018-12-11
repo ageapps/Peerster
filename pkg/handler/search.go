@@ -1,166 +1,187 @@
 package handler
 
 import (
-	"fmt"
-	"log"
+	"math"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/ageapps/Peerster/pkg/file"
-
 	"github.com/ageapps/Peerster/pkg/logger"
+
 	"github.com/ageapps/Peerster/pkg/router"
 
 	"github.com/ageapps/Peerster/pkg/data"
 )
 
+// MaxBudget achieved in search
 const MaxBudget = 32
-const DefaultBudget = 2
+
+// DefaultBudget used
+const DefaultBudget = uint64(2)
+
+// MatchThreshold needed to stop searching
+const MatchThreshold = 2
 
 // SearchHandler is a handler that will be in
 // charge of requesting data from other peers
 // FileName            string
 // MetaHash            data.HashValue
 // active              bool
-// currentlyRequesting bool
 // connection          *ConnectionHandler
 // router              *router.Router
 // mux                 sync.Mutex
 // quitChannel         chan bool
 // resetChannel        chan bool
-// StopChannel         chan bool
 //
 type SearchHandler struct {
-	file                *file.File
+	Name                string
+	budget              uint64
 	origin              string
-	chunk               int
-	metaHash            data.HashValue
-	gotMetafile         bool
-	currentPeer         string
-	active              bool
-	currentlyRequesting bool
+	Keywords            []string
+	destinationBudgets  map[string]int
+	matchedDestinations map[string]*data.FileResult
+	stopped             bool
 	connection          *ConnectionHandler
 	router              *router.Router
 	mux                 sync.Mutex
 	timer               *time.Timer
 	quitChannel         chan bool
-	StopChannel         chan bool
-	ChunkChannel        chan data.Chunk
+	ReplyChannel        chan *data.SearchReply
 }
 
 // NewSearchHandler function
-func NewSearchHandler(filename, origin, destination string, hash data.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
-	return &DataHandler{
-		file:                file.NewDownloadingFile(filename),
+func NewSearchHandler(name string, budget uint64, origin string, Keywords []string, peerConection *ConnectionHandler, router *router.Router) *SearchHandler {
+	defaultBudget := DefaultBudget
+	if budget > 0 {
+		defaultBudget = budget
+	}
+	handler := &SearchHandler{
+		Name:                name,
+		budget:              defaultBudget,
 		origin:              origin,
-		chunk:               0,
-		currentPeer:         destination,
-		metaHash:            hash,
-		active:              false,
-		currentlyRequesting: false,
+		Keywords:            Keywords,
+		destinationBudgets:  make(map[string]int),
+		matchedDestinations: make(map[string]*data.FileResult),
+		stopped:             false,
 		connection:          peerConection,
 		router:              router,
 		timer:               &time.Timer{},
 		quitChannel:         make(chan bool),
-		StopChannel:         make(chan bool),
-		ChunkChannel:        make(chan data.Chunk),
+		ReplyChannel:        make(chan *data.SearchReply),
+	}
+	handler.loadDestinationBudgets()
+	return handler
+}
+
+// Start handler
+func (handler *SearchHandler) Start(onStopHandler func(map[string]*data.FileResult)) {
+	go func() {
+		go handler.resetTimer()
+		handler.sendRequest()
+		for {
+			select {
+			case reply := <-handler.ReplyChannel:
+				for _, result := range reply.Results {
+					handler.matchedDestinations[result.FileName] = data.NewFileResult(result.FileName, reply.Origin, result.MetafileHash)
+				}
+				nrMatches := len(handler.matchedDestinations)
+				if nrMatches >= MatchThreshold {
+					handler.Stop()
+				}
+			case <-handler.timer.C:
+				logger.Logf("TIMEOUT - %v matches", len(handler.matchedDestinations))
+				handler.sendRequest()
+				handler.resetTimer()
+			case <-handler.quitChannel:
+				logger.Log("Finishing search handler - " + handler.Name)
+				if handler.timer.C != nil {
+					handler.timer.Stop()
+				}
+				onStopHandler(handler.matchedDestinations)
+				return
+			}
+		}
+	}()
+}
+
+func (handler *SearchHandler) loadDestinationBudgets() {
+	nrPeers := handler.router.GetTableSize()
+	if int(handler.budget) < nrPeers {
+		nrPeers = int(handler.budget)
+	}
+	nrPeers = nrPeers - len(handler.destinationBudgets)
+	logger.Logf("Loading destination budgets to %v peers", nrPeers)
+	peersChosen := 0
+	initialBudget := int(handler.budget)
+
+	for peersChosen < nrPeers {
+		assignedBudget := int(math.Ceil(float64(initialBudget) / float64(nrPeers)))
+		destination := handler.router.GetRandomDestination(handler.destinationBudgets)
+		logger.Logf("Destination: %v assigned budget: %v", destination, assignedBudget)
+		handler.destinationBudgets[destination] = assignedBudget
+		peersChosen++
+		initialBudget -= assignedBudget
 	}
 }
 
-func (handler *DataHandler) resetTimer() {
+func (handler *SearchHandler) resetTimer() {
 	//logger.Log("Launching new timer")
 	if handler.getTimer().C != nil {
 		handler.getTimer().Stop()
 	}
 	handler.mux.Lock()
-	handler.timer = time.NewTimer(5 * time.Second)
+	handler.timer = time.NewTimer(1 * time.Second)
 	handler.mux.Unlock()
 }
-func (handler *DataHandler) getTimer() *time.Timer {
+
+func (handler *SearchHandler) getTimer() *time.Timer {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	return handler.timer
 }
 
-// Start handler
-func (handler *DataHandler) Start() {
-	go handler.resetTimer()
-	handler.sendRequest()
-	handler.handleTimeout()
-	go func() {
-		for chunk := range handler.ChunkChannel {
-			go handler.resetTimer()
-			handler.handleTimeout()
-			logger.Logf("RECEIVED CHUNK")
-
-			// First chunk received is the metafile
-			if !handler.gotMetafile && chunk.Data != nil {
-				if err := handler.file.AddMetafile(chunk.Data, chunk.Hash); err != nil {
-					log.Fatal(err)
-				}
-				logger.Logf("Saved Metafile: %v", chunk.Hash.String())
-				handler.gotMetafile = true
-				logger.LogMetafile(handler.file.Name, handler.currentPeer)
-				handler.sendRequest()
-				// Normal chunk received
+func (handler *SearchHandler) sendRequest() {
+	for destination, budget := range handler.destinationBudgets {
+		if budget > 0 {
+			msg := data.NewSearchRequest(handler.origin, uint64(budget), handler.Keywords)
+			packet := &data.GossipPacket{SearchRequest: msg}
+			if destinationAdress, ok := handler.router.GetDestination(destination); ok {
+				logger.Logf("Sending SEARCH REQUEST Dest:%v", destination)
+				handler.connection.SendPacketToPeer(destinationAdress.String(), packet)
 			} else {
-				if err := handler.file.AddChunk(chunk.Data, chunk.Hash); err != nil {
-					log.Fatal(err)
-				}
-				logger.Logf("Added Chunk: %v", chunk.Hash.String())
-				logger.LogChunk(handler.file.Name, handler.currentPeer, handler.chunk+1)
-				handler.chunk++
-				if int64(len(chunk.Data)) < file.ChunckSize {
-					// last chunk of file
-					handler.getTimer().Stop()
-					go handler.file.Reconstruct()
-					break
-				}
-				handler.sendRequest()
+				logger.Logf("INVALID SEARCH REQUEST Dest:%v", destination)
 			}
 		}
-		close(handler.ChunkChannel)
-		close(handler.StopChannel)
-	}()
-
-}
-
-// GetMetaHashStr get
-func (handler *DataHandler) GetMetaHashStr() string {
-	return handler.metaHash.String()
-}
-
-// GetFile get
-func (handler *DataHandler) GetFile() *file.File {
-	return handler.file
-}
-
-// GetCurrentPeer get
-func (handler *DataHandler) GetCurrentPeer() string {
-	return handler.currentPeer
-}
-
-func (handler *DataHandler) sendRequest() {
-	requestHash := handler.metaHash
-	if handler.gotMetafile {
-		requestHash = handler.file.GetChunkHash(handler.chunk)
 	}
-	logger.Log(fmt.Sprintf("Sending DATA REQUEST Hash:%v", requestHash.String()))
-	msg := data.NewDataRequest(handler.origin, handler.currentPeer, uint32(10), requestHash)
-	packet := &data.GossipPacket{DataRequest: msg}
-	if destinationAdress, ok := handler.router.GetDestination(msg.Destination); ok {
-		logger.Logf("Sending DATA REQUEST Dest:%v", msg.Destination)
-		handler.connection.SendPacketToPeer(destinationAdress.String(), packet)
+	if handler.budget < MaxBudget {
+		handler.budget = handler.budget * 2
+		handler.loadDestinationBudgets()
 	} else {
-		logger.Logf("INVALID DATA REQUEST Dest:%v", msg.Destination)
+		// stop searching when max budget achieved
+		handler.Stop()
 	}
 }
 
-func (handler *DataHandler) handleTimeout() {
-	go func() {
-		<-handler.getTimer().C
-		fmt.Println("TIMEOUT requesting file")
-		handler.sendRequest()
-		handler.resetTimer()
-	}()
+// MatchesResults funtion checks if the results match keywords in prcess
+func (handler *SearchHandler) MatchesResults(results []*data.SearchResult) bool {
+	matchFile := true
+	for _, result := range results {
+		fileName := result.FileName
+		matchedKeyword := false
+		for _, key := range handler.Keywords {
+			if strings.Contains(fileName, key) {
+				matchedKeyword = true
+				break
+			}
+		}
+		matchFile = matchFile && matchedKeyword
+	}
+	return matchFile
+}
+
+// Stop search handler
+func (handler *SearchHandler) Stop() {
+	logger.Logf("Stopping search handler - " + handler.Name)
+	handler.stopped = true
+	close(handler.quitChannel)
 }

@@ -7,23 +7,6 @@ type UDPMessage struct {
 	Message Message
 }
 
-// DataRequest struct
-type DataRequest struct {
-	Origin      string
-	Destination string
-	HopLimit    uint32
-	HashValue   HashValue
-}
-
-// DataReply struct
-type DataReply struct {
-	Origin      string
-	Destination string
-	HopLimit    uint32
-	HashValue   HashValue
-	Data        []byte
-}
-
 // SimpleMessage struct
 type SimpleMessage struct {
 	OriginalName  string
@@ -40,20 +23,16 @@ type PrivateMessage struct {
 	HopLimit    uint32
 }
 
-// RumorMessage to send
-type RumorMessage struct {
-	Origin string `json:"origin"`
-	ID     uint32 `json:"id"`
-	Text   string `json:"text"`
+// NewSimpleMessage create
+func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
+	return &SimpleMessage{
+		OriginalName:  ogname,
+		RelayPeerAddr: relay,
+		Contents:      msg,
+	}
 }
 
-// PeerStatus to send
-type PeerStatus struct {
-	Identifier string
-	NextID     uint32
-}
-
-// IsRouteRumor check if Rumor is a route message
-func (rumor *RumorMessage) IsRouteRumor() bool {
-	return rumor.Text == ""
+// NewPrivateMessage create
+func NewPrivateMessage(origin string, ID uint32, destination, text string, hops uint32) *PrivateMessage {
+	return &PrivateMessage{origin, ID, destination, text, hops}
 }

@@ -12,7 +12,6 @@ import (
 	"path"
 	"sync"
 
-	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/utils"
 )
@@ -21,13 +20,14 @@ import (
 type Metadata struct {
 	filename   string
 	size       int64
-	metafile   data.HashValue
-	metahash   data.HashValue
-	fileHashes []data.HashValue
+	metafile   utils.HashValue
+	metahash   utils.HashValue
+	fileHashes []utils.HashValue
+	chunkMap   []uint64
 	mux        sync.Mutex
 }
 
-// SHAhashSize size of SHA hash
+// SHAhashSize size of SHA has h
 const SHAhashSize = sha256.Size
 
 // ChunckSize Size of chunks files are splitted to
@@ -37,7 +37,8 @@ func newMetadata(filename string, local bool) (*Metadata, error) {
 	meta := &Metadata{
 		filename:   filename,
 		metafile:   []byte{},
-		fileHashes: []data.HashValue{},
+		fileHashes: []utils.HashValue{},
+		chunkMap:   []uint64{},
 	}
 	if local {
 		fileSize, err := getFileSize(filename)
@@ -79,6 +80,7 @@ func (meta *Metadata) loadMetadata() error {
 
 	logger.Logf("Reading file in path %v", filePath)
 
+	var chunkIndex uint64 = 0
 	for bytesNotRead > 0 {
 
 		bufferSize := ChunckSize
@@ -95,9 +97,11 @@ func (meta *Metadata) loadMetadata() error {
 		hashArr := sha256.Sum256(chunk)
 		hash := hashArr[:]
 
-		if err = meta.addChunk(chunk, hash); err != nil {
+		if err = meta.addChunk(chunk, hash, true); err != nil {
 			return fmt.Errorf("error adding chunk: %v", err)
 		}
+		meta.chunkMap = append(meta.chunkMap, chunkIndex)
+		chunkIndex++
 		bytesNotRead -= ChunckSize
 	}
 	metahash := sha256.Sum256(meta.metafile)
@@ -132,18 +136,35 @@ func (meta *Metadata) saveFile(path string, chunk []byte) error {
 	return nil
 }
 
-func (meta *Metadata) addChunk(chunk []byte, hash data.HashValue) error {
+func (meta *Metadata) getChunkIndex(chunkHash utils.HashValue) int {
+	for index, hash := range meta.fileHashes {
+		if hash.String() == chunkHash.String() {
+			return index
+		}
+	}
+	return -1
+}
+func (meta *Metadata) addChunk(chunk []byte, hash utils.HashValue, local bool) error {
 	meta.mux.Lock()
-	meta.metafile = append(meta.metafile, hash...)
+	if local {
+		meta.metafile = append(meta.metafile, hash...)
+	} else {
+		if index := meta.getChunkIndex(hash); index > 0 {
+			meta.chunkMap = append(meta.chunkMap, uint64(index))
+		} else {
+			logger.Logf("Chunk %v not found", hash.String())
+		}
+	}
 	//logger.Logf("Saving hash v% : %v", len(hash), hex.EncodeToString(hash))
 	//meta.fileHashes = append(meta.fileHashes, hash)
 	meta.mux.Unlock()
 	chunkFilePath := path.Join(utils.GetFilesPath(), ChunksDir, hex.EncodeToString(hash))
 	return meta.saveFile(chunkFilePath, chunk)
 }
-func (meta *Metadata) saveMetafile(data []byte, hash data.HashValue) error {
+func (meta *Metadata) saveMetafile(data []byte, hash utils.HashValue) error {
 	meta.mux.Lock()
 	meta.metahash = hash
+	meta.metafile = data
 	meta.mux.Unlock()
 	metahashFilePath := path.Join(utils.GetFilesPath(), ChunksDir, hex.EncodeToString(hash))
 	metahashBackupFilePath := path.Join(utils.GetFilesPath(), metafileDir, hex.EncodeToString(hash))
@@ -151,7 +172,7 @@ func (meta *Metadata) saveMetafile(data []byte, hash data.HashValue) error {
 	return meta.saveFile(metahashFilePath, data)
 }
 
-func (meta *Metadata) addMetafile(data []byte, hash data.HashValue) error {
+func (meta *Metadata) addMetafile(data []byte, hash utils.HashValue) error {
 	logger.Logf("Reading metadata file")
 	hashNumber := len(data) / SHAhashSize
 	logger.Logf("Reading metadata with %v hashes", hashNumber)

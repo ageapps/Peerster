@@ -2,10 +2,9 @@ package gossiper
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
-	"path"
+	"strings"
 	"sync"
 
 	"github.com/ageapps/Peerster/pkg/file"
@@ -30,6 +29,7 @@ type Gossiper struct {
 	router          *router.Router
 	monguerPocesses map[string]*handler.MongerHandler
 	dataProcesses   map[string]*handler.DataHandler
+	searchProcesses map[string]*handler.SearchHandler
 	indexedFiles    map[string]*file.File
 	rumorCounter    *utils.Counter // [name] address
 	privateCounter  *utils.Counter // [name] address
@@ -61,6 +61,7 @@ func NewGossiper(addressStr, name string, simple bool, rtimer int) (*Gossiper, e
 		router:          router.NewRouter(),
 		monguerPocesses: make(map[string]*handler.MongerHandler),
 		dataProcesses:   make(map[string]*handler.DataHandler),
+		searchProcesses: make(map[string]*handler.SearchHandler),
 		indexedFiles:    make(map[string]*file.File),
 		rumorCounter:    utils.NewCounter(uint32(0)),
 		privateCounter:  utils.NewCounter(uint32(0)),
@@ -115,22 +116,28 @@ func (gossiper *Gossiper) ListenToClients(port int) {
 // HandleClientMessage handles client messages
 func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 
-	logger.Logf("Message received from client index: %v, private: %v, request: %v", msg.FileToIndex(), msg.IsPrivate(), msg.HasRequest())
+	logger.Logf("Message received from client \nindex: %v\nprivate: %v\nrequest: %v\nsearch: %v", msg.FileToIndex(), msg.IsDirectMessage(), msg.HasRequest(), msg.IsSearchMessage())
 
 	if msg.FileToIndex() {
 		gossiper.IndexFile(msg.FileName)
 		return
 	}
-	if gossiper.simpleMode {
+
+	switch {
+	case gossiper.simpleMode:
 		logger.LogClient(*msg)
 
 		newMsg := data.NewSimpleMessage(gossiper.Name, msg.Text, gossiper.Address.String())
 		gossiper.peerConection.BroadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, gossiper.Address.String())
 
-	} else if msg.IsPrivate() {
-		gossiper.handleClientPrivateMessage(msg)
-	} else {
+	case msg.IsDirectMessage():
+		gossiper.handleClientDirectMessage(msg)
 
+	case msg.IsSearchMessage():
+		// Message has keyboards to search
+		gossiper.launchSearchProcess(msg.Keywords, msg.Budget)
+		// Asign budget
+	default:
 		logger.LogClient(*msg)
 		// Reset used peers for timers
 		go gossiper.resetUsedPeers()
@@ -139,41 +146,25 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 		gossiper.rumorStack.AddMessage(*rumorMessage)
 		gossiper.mongerMessage(rumorMessage, "", false)
 	}
-
 }
 
-func (gossiper *Gossiper) handleClientPrivateMessage(msg *data.Message) {
+func (gossiper *Gossiper) handleClientDirectMessage(msg *data.Message) {
+	// Message has request hash
 	if msg.HasRequest() {
-		logger.Log("Starting DATA 1 - " + msg.RequestHash)
-		hash, err := data.GetHash(msg.RequestHash)
+		hash, err := utils.GetHash(msg.RequestHash)
 		if err != nil {
 			log.Fatal(err)
 		}
-		logger.Log("Starting DATA 2 - " + msg.RequestHash)
-
-		dataProcess := handler.NewDataHandler(msg.FileName, gossiper.Name, msg.Destination, hash, gossiper.peerConection, gossiper.router)
-		logger.Log("Starting DATA process - " + msg.RequestHash)
-		gossiper.addDataProcess(dataProcess)
-		dataProcess.Start()
-
-		go func() {
-			for {
-				select {
-				case <-dataProcess.StopChannel:
-					gossiper.addFile(dataProcess.GetFile())
-					gossiper.deleteDataProcess(hash.String())
-					return
-				}
-			}
-		}()
-		return
+		gossiper.launchDataProcess(msg.FileName, msg.Destination, hash)
+	} else {
+		// Message is a private message
+		logger.LogClient(*msg)
+		// Message is private
+		id := gossiper.privateCounter.Increment()
+		privateMessage := data.NewPrivateMessage(gossiper.Name, id, msg.Destination, msg.Text, uint32(10))
+		gossiper.privateStack.AddMessage(*privateMessage)
+		gossiper.sendPrivateMessage(privateMessage)
 	}
-	logger.LogClient(*msg)
-	// Message is private
-	id := gossiper.privateCounter.Increment()
-	privateMessage := data.NewPrivateMessage(gossiper.Name, id, msg.Destination, msg.Text, uint32(10))
-	gossiper.privateStack.AddMessage(*privateMessage)
-	gossiper.sendPrivateMessage(privateMessage)
 }
 
 func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddress string) {
@@ -208,61 +199,42 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer string, routerMonguering bool) {
 	gossiper.mux.Lock()
 	processName := fmt.Sprint(len(gossiper.monguerPocesses), "/", routerMonguering)
-	logger.Log("Starting monger process - " + processName)
 	monguerProcess := handler.NewMongerHandler(originPeer, processName, routerMonguering, msg, gossiper.peerConection, gossiper.peers)
-	gossiper.monguerPocesses[processName] = monguerProcess
-	monguerProcess.Start()
-
-	go func() {
-		for {
-			select {
-			case <-monguerProcess.StopChannel:
-				gossiper.deleteMongerProcess(monguerProcess.Name)
-				return
-			}
-		}
-	}()
-
 	gossiper.mux.Unlock()
+
+	gossiper.registerProcess(monguerProcess, PROCESS_MONGUER)
+	monguerProcess.Start(func() {
+		gossiper.unregisterProcess(monguerProcess.Name, PROCESS_MONGUER)
+	})
 }
 
-func (gossiper *Gossiper) findMonguerHandler(originAddress string, routeMonguer bool) *handler.MongerHandler {
-	processes := gossiper.getMongerProcesses()
-	for _, process := range processes {
-		if process.GetMonguerPeer() == originAddress && process.IsRouteMonguer() == routeMonguer {
-			return process
-		}
-	}
-	return nil
-}
-func (gossiper *Gossiper) findDataHandler(origin string) *handler.DataHandler {
-	processes := gossiper.getDataProcesses()
-
-	for _, process := range processes {
-		if process.GetCurrentPeer() == origin {
-			return process
-		}
-	}
-	return nil
-}
-
-func (gossiper *Gossiper) fileExists(name string) (bool, string) {
-	files, err := ioutil.ReadDir(path.Join(utils.GetRootPath(), file.ChunksDir))
+func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64) {
+	name, err := utils.MakeHashString(strings.Join(keywords[:], ","))
 	if err != nil {
 		log.Fatal(err)
 	}
-	// logger.Logf("Looking for %v", name)
+	searchProcess := handler.NewSearchHandler(name, budget, gossiper.Name, keywords, gossiper.peerConection, gossiper.router)
 
-	for _, fileName := range files {
-		if fileName.Name() == name {
-			return true, path.Join(utils.GetRootPath(), file.ChunksDir, name)
+	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
+	searchProcess.Start(func(filesFound map[string]*data.FileResult) {
+		gossiper.unregisterProcess(searchProcess.Name, PROCESS_SEARCH)
+		for _, fileResult := range filesFound {
+			gossiper.launchDataProcess(fileResult.FileName, fileResult.Destination, fileResult.MetafileHash)
 		}
-	}
-	return false, ""
+	})
+}
+
+func (gossiper *Gossiper) launchDataProcess(filename, destination string, metahash utils.HashValue) {
+	dataProcess := handler.NewDataHandler(filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
+	gossiper.registerProcess(dataProcess, PROCESS_DATA)
+	dataProcess.Start(func() {
+		gossiper.addFile(dataProcess.GetFile())
+		gossiper.unregisterProcess(dataProcess.GetCurrentPeer(), PROCESS_DATA)
+	})
 }
 
 func keepRumorering() bool {
 	// flipCoin
-	coin := rand.Int() % 2
+	coin := rand.Int() % 3
 	return coin != 0
 }

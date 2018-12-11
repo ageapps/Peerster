@@ -26,6 +26,9 @@ run2:
 run3:
 	go run --race . -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5001 -rtimer=3
 
+send1:
+	go run --race ./client -UIPort=10000 -msg=Hello
+
 send:
 	go run --race ./client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
 

@@ -12,8 +12,8 @@ type Message struct {
 	Budget        uint64
 }
 
-// IsPrivate check if is private message
-func (msg *Message) IsPrivate() bool {
+// IsDirectMessage check if is private message
+func (msg *Message) IsDirectMessage() bool {
 	return msg.Destination != ""
 }
 
@@ -25,4 +25,9 @@ func (msg *Message) FileToIndex() bool {
 // HasRequest check if is private message
 func (msg *Message) HasRequest() bool {
 	return msg.RequestHash != ""
+}
+
+// IsSearchMessage check if is private message
+func (msg *Message) IsSearchMessage() bool {
+	return msg.Keywords != nil && len(msg.Keywords) > 0 && msg.Budget > 0
 }

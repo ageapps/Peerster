@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 
@@ -88,4 +89,29 @@ func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, f
 		return nil, false
 	}
 	return value, true
+}
+func (router *Router) GetTableSize() int {
+	return len(router.table)
+}
+
+// GetRandomDestination func
+func (router *Router) GetRandomDestination(usedPeers map[string]int) string {
+	router.mux.Lock()
+	defer router.mux.Unlock()
+
+	var keys []string
+	for dest := range router.table {
+		keys = append(keys, dest)
+	}
+	destinationNr := len(keys)
+	if len(usedPeers) >= destinationNr {
+		return ""
+	}
+	for {
+		randIndex := rand.Int() % destinationNr
+		peerDestination := keys[randIndex]
+		if _, ok := usedPeers[peerDestination]; !ok {
+			return peerDestination
+		}
+	}
 }

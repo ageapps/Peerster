@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"strings"
 
-	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/utils"
 )
@@ -75,24 +75,69 @@ func NewDownloadingFile(name string) *File {
 	}
 }
 
+// MatchKeyword func
+func MatchKeyword(match string) (string, bool) {
+	files, err := ioutil.ReadDir(path.Join(utils.GetRootPath(), DownloadsDir))
+	if err != nil {
+		log.Fatal(err)
+	}
+	// logger.Logf("Looking for %v", name)
+
+	for _, fileName := range files {
+		if strings.Contains(fileName.Name(), match) {
+			return path.Join(utils.GetRootPath(), ChunksDir, match), true
+		}
+	}
+	return "", false
+}
+
+// Exists func
+func Exists(name string) (string, bool) {
+	files, err := ioutil.ReadDir(path.Join(utils.GetRootPath(), ChunksDir))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, fileName := range files {
+		if fileName.Name() == name {
+			return path.Join(utils.GetRootPath(), ChunksDir, name), true
+		}
+	}
+	return "", false
+}
+
+// GetChunkCount file name
+func (file *File) GetChunkCount() uint64 {
+	return uint64(len(file.metadata.fileHashes))
+}
+
+// MatchKeyword file name
+func (file *File) MatchKeyword(match string) bool {
+	return strings.Contains(file.Name, match)
+}
+
 // AddChunk to metadata
-func (file *File) AddChunk(chunk []byte, hash data.HashValue) error {
-	return file.metadata.addChunk(chunk, hash)
+func (file *File) AddChunk(chunk []byte, hash utils.HashValue) error {
+	return file.metadata.addChunk(chunk, hash, false)
 }
 
 // AddMetafile to metadata
-func (file *File) AddMetafile(chunk []byte, hash data.HashValue) error {
+func (file *File) AddMetafile(chunk []byte, hash utils.HashValue) error {
 	return file.metadata.addMetafile(chunk, hash)
 }
 
 // GetChunkHash get hash of chunk
-func (file *File) GetChunkHash(index int) data.HashValue {
+func (file *File) GetChunkHash(index int) utils.HashValue {
 	return file.metadata.fileHashes[index]
 }
 
+// GetChunkMap get hash of chunk
+func (file *File) GetChunkMap() []uint64 {
+	return file.metadata.chunkMap
+}
+
 // GetMetaHash of metadata
-func (file *File) GetMetaHash() string {
-	return file.metadata.metahash.String()
+func (file *File) GetMetaHash() utils.HashValue {
+	return file.metadata.metahash
 }
 
 // Reconstruct file from metadata
