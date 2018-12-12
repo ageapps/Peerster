@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -20,7 +21,7 @@ const MaxBudget = 32
 const DefaultBudget = uint64(2)
 
 // MatchThreshold needed to stop searching
-const MatchThreshold = 2
+const DefaultMatchThreshold = 2
 
 // SearchHandler is a handler that will be in
 // charge of requesting data from other peers
@@ -36,11 +37,14 @@ const MatchThreshold = 2
 type SearchHandler struct {
 	Name                string
 	budget              uint64
-	origin              string
+	originPeer          string
+	matchThreshold      int
+	fromClient          bool
 	Keywords            []string
 	destinationBudgets  map[string]int
 	matchedDestinations map[string]*data.FileResult
 	stopped             bool
+	waiting             bool
 	connection          *ConnectionHandler
 	router              *router.Router
 	mux                 sync.Mutex
@@ -50,59 +54,85 @@ type SearchHandler struct {
 }
 
 // NewSearchHandler function
-func NewSearchHandler(name string, budget uint64, origin string, Keywords []string, peerConection *ConnectionHandler, router *router.Router) *SearchHandler {
+func NewSearchHandler(name string, budget uint64, fromClient bool, originPeer string, Keywords []string, peerConection *ConnectionHandler, router *router.Router) *SearchHandler {
 	defaultBudget := DefaultBudget
 	if budget > 0 {
 		defaultBudget = budget
 	}
+	matchThreshold := DefaultMatchThreshold
 	handler := &SearchHandler{
 		Name:                name,
 		budget:              defaultBudget,
-		origin:              origin,
+		originPeer:          originPeer,
+		matchThreshold:      matchThreshold,
+		fromClient:          fromClient,
 		Keywords:            Keywords,
 		destinationBudgets:  make(map[string]int),
 		matchedDestinations: make(map[string]*data.FileResult),
 		stopped:             false,
+		waiting:             false,
 		connection:          peerConection,
 		router:              router,
 		timer:               &time.Timer{},
 		quitChannel:         make(chan bool),
 		ReplyChannel:        make(chan *data.SearchReply),
 	}
-	handler.loadDestinationBudgets()
 	return handler
 }
 
 // Start handler
-func (handler *SearchHandler) Start(onStopHandler func(map[string]*data.FileResult)) {
+func (handler *SearchHandler) Start(onFileReceviedHandler func(*data.FileResult), onStopHandler func()) {
 	go func() {
-		go handler.resetTimer()
+		handler.resetTimer()
 		handler.sendRequest()
 		for {
 			select {
 			case reply := <-handler.ReplyChannel:
 				for _, result := range reply.Results {
-					handler.matchedDestinations[result.FileName] = data.NewFileResult(result.FileName, reply.Origin, result.MetafileHash)
-					logger.LogFound(result.FileName, reply.Origin, result.MetafileHash.String(), result.ChunkMap)
+					fileResult := data.NewFileResult(result.FileName, reply.Origin, result.MetafileHash, result.ChunkMap)
+					handler.matchedDestinations[reply.Origin] = fileResult
+					onFileReceviedHandler(fileResult)
 				}
 				nrMatches := len(handler.matchedDestinations)
-				if nrMatches >= MatchThreshold {
-					handler.Stop()
+				if nrMatches >= handler.matchThreshold {
+					handler.stop()
 				}
 			case <-handler.timer.C:
 				logger.Logf("TIMEOUT - %v matches", len(handler.matchedDestinations))
-				handler.sendRequest()
-				handler.resetTimer()
+				if handler.waiting {
+					logger.Logf("Handler waiting for matches %v", handler.Keywords)
+				} else {
+					if handler.budget >= MaxBudget {
+						handler.waiting = true
+						// create a timeout for waiting for answers
+						timer2 := time.NewTimer(5 * time.Second)
+						go func() {
+							<-timer2.C
+							handler.stop()
+						}()
+					} else {
+						handler.sendRequest()
+						handler.resetTimer()
+					}
+				}
 			case <-handler.quitChannel:
 				logger.Log("Finishing search handler - " + handler.Name)
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
-				onStopHandler(handler.matchedDestinations)
+				onStopHandler()
 				return
 			}
 		}
 	}()
+}
+
+func (handler *SearchHandler) updateMatchThreshHold() {
+	if handler.router.GetTableSize() < handler.matchThreshold {
+		handler.matchThreshold = handler.router.GetTableSize()
+		return
+	}
+	handler.matchThreshold = DefaultMatchThreshold
 }
 
 func (handler *SearchHandler) loadDestinationBudgets() {
@@ -110,17 +140,26 @@ func (handler *SearchHandler) loadDestinationBudgets() {
 	if int(handler.budget) < nrPeers {
 		nrPeers = int(handler.budget)
 	}
-	nrPeers = nrPeers - len(handler.destinationBudgets)
-	logger.Logf("Loading destination budgets to %v peers", nrPeers)
-	peersChosen := 0
+	handler.destinationBudgets = make(map[string]int)
+	if handler.originPeer != "" && !handler.fromClient {
+		nrPeers--
+		handler.destinationBudgets[handler.originPeer] = 0
+	}
+	logger.Logf("Loading destination budgets %v to %v peers", handler.budget, nrPeers)
+	if nrPeers <= 0 {
+		logger.Log("No peers to send search request")
+		handler.stop()
+		return
+	}
+	peersChosen := nrPeers
 	initialBudget := int(handler.budget)
-
-	for peersChosen < nrPeers {
-		assignedBudget := int(math.Ceil(float64(initialBudget) / float64(nrPeers)))
+	for peersChosen > 0 {
+		logger.Logf("Assigning budget: %v/%v", float64(initialBudget), float64(peersChosen))
+		assignedBudget := int(math.Ceil(float64(initialBudget) / float64(peersChosen)))
 		destination := handler.router.GetRandomDestination(handler.destinationBudgets)
 		logger.Logf("Destination: %v assigned budget: %v", destination, assignedBudget)
 		handler.destinationBudgets[destination] = assignedBudget
-		peersChosen++
+		peersChosen--
 		initialBudget -= assignedBudget
 	}
 }
@@ -142,9 +181,11 @@ func (handler *SearchHandler) getTimer() *time.Timer {
 }
 
 func (handler *SearchHandler) sendRequest() {
+	handler.loadDestinationBudgets()
+	handler.updateMatchThreshHold()
 	for destination, budget := range handler.destinationBudgets {
 		if budget > 0 {
-			msg := data.NewSearchRequest(handler.origin, uint64(budget), handler.Keywords)
+			msg := data.NewSearchRequest(handler.originPeer, uint64(budget), handler.Keywords)
 			packet := &data.GossipPacket{SearchRequest: msg}
 			if destinationAdress, ok := handler.router.GetDestination(destination); ok {
 				logger.Logf("Sending SEARCH REQUEST Dest:%v", destination)
@@ -156,10 +197,6 @@ func (handler *SearchHandler) sendRequest() {
 	}
 	if handler.budget < MaxBudget {
 		handler.budget = handler.budget * 2
-		handler.loadDestinationBudgets()
-	} else {
-		// stop searching when max budget achieved
-		handler.Stop()
 	}
 }
 
@@ -175,14 +212,19 @@ func (handler *SearchHandler) MatchesResults(results []*data.SearchResult) bool 
 				break
 			}
 		}
+		fmt.Printf("Matched %v/%v - %v\n", fileName, matchedKeyword, handler.Keywords)
 		matchFile = matchFile && matchedKeyword
 	}
 	return matchFile
 }
 
-// Stop search handler
-func (handler *SearchHandler) Stop() {
+// stop search handler
+func (handler *SearchHandler) stop() {
 	logger.Logf("Stopping search handler - " + handler.Name)
-	handler.stopped = true
-	close(handler.quitChannel)
+	if !handler.stopped {
+		handler.stopped = true
+		close(handler.quitChannel)
+		return
+	}
+	logger.Log("Data Handler already stopped....")
 }

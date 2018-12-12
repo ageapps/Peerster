@@ -29,5 +29,5 @@ func (msg *Message) HasRequest() bool {
 
 // IsSearchMessage check if is private message
 func (msg *Message) IsSearchMessage() bool {
-	return msg.Keywords != nil && len(msg.Keywords) > 0 && msg.Budget > 0
+	return msg.Keywords != nil && len(msg.Keywords) > 0
 }

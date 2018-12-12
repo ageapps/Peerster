@@ -118,6 +118,13 @@ func (gossiper *Gossiper) GetRoutes() *router.RoutingTable {
 	return gossiper.router.GetTable()
 }
 
+func (gossiper *Gossiper) fileExists(hash string) bool {
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+	_, ok := gossiper.indexedFiles[hash]
+	return ok
+}
+
 func (gossiper *Gossiper) addFile(newFile *file.File) {
 	logger.Logf("Indexing new file : %v", newFile.Name)
 	gossiper.mux.Lock()

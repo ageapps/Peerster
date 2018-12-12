@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/pkg/data"
@@ -23,7 +24,7 @@ type StatusResponse struct {
 }
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
-	logger.CreateLogger(name, address, false)
+	logger.CreateLogger(name, address, true)
 	newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
 	if err != nil {
 		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
@@ -121,6 +122,18 @@ func sendMessage(name, msg string) bool {
 	}
 	newMsg := &data.Message{
 		Text: msg,
+	}
+	serverGossiper[name].HandleClientMessage(newMsg)
+	return true
+}
+
+func sendSearchMessage(name, keyboards string) bool {
+	if serverGossiper[name] == nil {
+		return false
+	}
+	newMsg := &data.Message{
+		Keywords: strings.Split(keyboards, ","),
+		Budget:   uint64(2),
 	}
 	serverGossiper[name].HandleClientMessage(newMsg)
 	return true

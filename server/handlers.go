@@ -33,7 +33,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 func GetMessages(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for messages"))
 		return
 	}
 	send(&w, getGossiperMessages(name))
@@ -43,7 +43,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 func GetPrivateMessages(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for private messages"))
 		return
 	}
 	send(&w, getGossiperPrivateMessages(name))
@@ -53,7 +53,7 @@ func GetPrivateMessages(w http.ResponseWriter, r *http.Request) {
 func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for routes"))
 		return
 	}
 	send(&w, getGossiperRoutes(name))
@@ -63,7 +63,7 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 func GetFiles(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for files"))
 		return
 	}
 	send(&w, getGossiperFiles(name))
@@ -73,7 +73,7 @@ func GetFiles(w http.ResponseWriter, r *http.Request) {
 func GetNodes(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for nodes"))
 		return
 	}
 	send(&w, getGossiperPeers(name))
@@ -84,7 +84,7 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 	params := *readBody(&w, r)
 	name, ok := params["name"].(string)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for new message"))
 		return
 	}
 	msg, ok := params["msg"].(string)
@@ -100,7 +100,7 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 	params := *readBody(&w, r)
 	name, ok := params["name"].(string)
 	if !ok {
-		sendError(&w, errors.New("Error: no peer requested"))
+		sendError(&w, errors.New("Error: no peer requested for private message"))
 		return
 	}
 	dest, ok := params["destination"].(string)
@@ -114,6 +114,22 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	send(&w, getGossiperMessages(name))
+}
+
+// PostSearch func
+func PostSearch(w http.ResponseWriter, r *http.Request) {
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	search, ok := params["search"].(string)
+	if !ok || !sendSearchMessage(name, search) {
+		sendError(&w, errors.New("Error while searching"))
+		return
+	}
+	sendOk(&w)
 }
 
 // PostRequest func

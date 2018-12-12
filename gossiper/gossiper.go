@@ -135,7 +135,7 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 
 	case msg.IsSearchMessage():
 		// Message has keyboards to search
-		gossiper.launchSearchProcess(msg.Keywords, msg.Budget)
+		gossiper.launchSearchProcess(msg.Keywords, msg.Budget, gossiper.Name)
 		// Asign budget
 	default:
 		logger.LogClient(*msg)
@@ -186,6 +186,10 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 		gossiper.handleDataReply(packet.DataReply, originAddress)
 	case data.PACKET_DATA_REQUEST:
 		gossiper.handleDataRequest(packet.DataRequest, originAddress)
+	case data.PACKET_SEARCH_REQUEST:
+		gossiper.handleSearchRequest(packet.SearchRequest, originAddress)
+	case data.PACKET_SEARCH_REPLY:
+		gossiper.handleSearchReply(packet.SearchReply, originAddress)
 	case data.PACKET_SIMPLE:
 		logger.LogSimple(*packet.Simple)
 		logger.LogPeers(gossiper.peers.String())
@@ -212,29 +216,37 @@ func (gossiper *Gossiper) mongerMessage(msg *data.RumorMessage, originPeer strin
 	})
 }
 
-func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64) {
+func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64, sender string) {
 	name := utils.MakeHashString(strings.Join(keywords[:], ","))
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	searchProcess := handler.NewSearchHandler(name, budget, gossiper.Name, keywords, gossiper.peerConection, gossiper.router)
+	fromClient := sender == gossiper.Name
+	searchProcess := handler.NewSearchHandler(name, budget, fromClient, sender, keywords, gossiper.peerConection, gossiper.router)
 
 	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
-	searchProcess.Start(func(filesFound map[string]*data.FileResult) {
-		gossiper.unregisterProcess(searchProcess.Name, PROCESS_SEARCH)
-		for _, fileResult := range filesFound {
-			gossiper.launchDataProcess(fileResult.FileName, fileResult.Destination, fileResult.MetafileHash)
+	searchProcess.Start(func(fileFound *data.FileResult) { // onFileReceived
+		if !gossiper.fileExists(fileFound.MetafileHash.String()) {
+			logger.LogFound(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash.String(), fileFound.ChunkMap)
+			gossiper.launchDataProcess(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash)
 		}
+	}, func() { // onStopHandler
+		logger.LogSearchFinished()
+		gossiper.unregisterProcess(searchProcess.Name, PROCESS_SEARCH)
 	})
 }
 
 func (gossiper *Gossiper) launchDataProcess(filename, destination string, metahash utils.HashValue) {
-	dataProcess := handler.NewDataHandler(filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
+	dataProcess := handler.NewDataHandler(buildDataProcessName(destination, filename), filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
 	gossiper.registerProcess(dataProcess, PROCESS_DATA)
 	dataProcess.Start(func() {
 		gossiper.addFile(dataProcess.GetFile())
 		gossiper.unregisterProcess(dataProcess.GetCurrentPeer(), PROCESS_DATA)
 	})
+}
+
+func buildDataProcessName(peer, file string) string {
+	return fmt.Sprint(peer, "/", file)
 }
 
 func keepRumorering() bool {

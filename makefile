@@ -3,6 +3,7 @@ n = 4 # node number
 f = test.png
 h = 13fa82c9e76e18e1e8587231be1aa955f3469a20a1b085a28326339f36108ddd
 d = nodeC
+s = test
 
 build:
 	go build .
@@ -35,6 +36,9 @@ send3:
 
 send:
 	go run --race ./client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
+
+search:
+	go run --race ./client -UIPort=1000$(n) -keywords=$(s)
 
 serve:
 	cd ./server && go run --race .

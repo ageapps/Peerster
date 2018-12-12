@@ -1,6 +1,8 @@
 package gossiper
 
 import (
+	"strings"
+
 	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/handler"
 	"github.com/ageapps/Peerster/pkg/logger"
@@ -26,7 +28,7 @@ func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType
 
 	case PROCESS_DATA:
 		regProcess := process.(*handler.DataHandler)
-		name = regProcess.GetCurrentPeer()
+		name = regProcess.Name
 		gossiper.dataProcesses[name] = regProcess
 
 	case PROCESS_SEARCH:
@@ -104,11 +106,12 @@ func (gossiper *Gossiper) findMonguerProcess(originAddress string, routeMonguer 
 	}
 	return nil
 }
-func (gossiper *Gossiper) findDataProcess(origin string) *handler.DataHandler {
+func (gossiper *Gossiper) findDataProcess(origin string, hash string) *handler.DataHandler {
 	processes := gossiper.getDataProcesses()
-	process, found := processes[origin]
-	if found {
-		return process
+	for _, process := range processes {
+		if strings.Contains(process.Name, origin) && process.GetExpectingHashStr() == hash {
+			return process
+		}
 	}
 	return nil
 }

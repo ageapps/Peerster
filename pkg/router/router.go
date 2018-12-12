@@ -61,7 +61,6 @@ func (router *Router) entryExists(origin string) (isNew bool) {
 // AddIfNotExists adds entry if there's none for the origin address
 func (router *Router) AddIfNotExists(origin, address string) {
 	router.mux.Lock()
-	defer router.mux.Unlock()
 	if !router.entryExists(origin) {
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)
@@ -71,6 +70,7 @@ func (router *Router) AddIfNotExists(origin, address string) {
 			router.addEntry(origin, &newEntry)
 		}
 	}
+	router.mux.Unlock()
 }
 
 func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {

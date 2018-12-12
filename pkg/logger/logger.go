@@ -96,7 +96,12 @@ func LogReconstructed(filename string) {
 // LogFound func
 func LogFound(filename, origin, metafile string, chunks []uint64) {
 	indexes := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(chunks)), ","), "[]")
-	fmt.Printf("FPUND match %v at %v metafile=%v chunks=%v\n", filename, origin, metafile, indexes)
+	fmt.Printf("FOUND match %v at %v metafile=%v chunks=%v\n", filename, origin, metafile, indexes)
+}
+
+// LogSearchFinished func
+func LogSearchFinished() {
+	fmt.Println("SEARCH FINISHED")
 }
 
 // CreateLogger func

@@ -149,7 +149,7 @@ func (meta *Metadata) addChunk(chunk []byte, hash utils.HashValue, local bool) e
 	if local {
 		meta.metafile = append(meta.metafile, hash...)
 	} else {
-		if index := meta.getChunkIndex(hash); index > 0 {
+		if index := meta.getChunkIndex(hash); index >= 0 {
 			meta.chunkMap = append(meta.chunkMap, uint64(index))
 		} else {
 			logger.Logf("Chunk %v not found", hash.String())

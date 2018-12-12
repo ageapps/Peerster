@@ -32,6 +32,7 @@ type FileResult struct {
 	FileName     string
 	Destination  string
 	MetafileHash utils.HashValue
+	ChunkMap     []uint64
 }
 
 // NewSearchRequest create
@@ -44,11 +45,12 @@ func NewSearchRequest(ogname string, budget uint64, keywords []string) *SearchRe
 }
 
 // NewFileResult create
-func NewFileResult(filename, destination string, metahash utils.HashValue) *FileResult {
+func NewFileResult(filename, destination string, metahash utils.HashValue, chunkMap []uint64) *FileResult {
 	return &FileResult{
 		FileName:     filename,
 		Destination:  destination,
 		MetafileHash: metahash,
+		ChunkMap:     chunkMap,
 	}
 }
 

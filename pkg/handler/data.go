@@ -27,35 +27,37 @@ import (
 // resetChannel        chan bool
 //
 type DataHandler struct {
-	file         *file.File
-	origin       string
-	chunk        int
-	metaHash     utils.HashValue
-	gotMetafile  bool
-	currentPeer  string
-	stopped      bool
-	connection   *ConnectionHandler
-	router       *router.Router
-	mux          sync.Mutex
-	timer        *time.Timer
-	quitChannel  chan bool
-	ChunkChannel chan utils.Chunk
+	Name          string
+	file          *file.File
+	origin        string
+	chunk         int
+	expectingHash utils.HashValue
+	gotMetafile   bool
+	currentPeer   string
+	stopped       bool
+	connection    *ConnectionHandler
+	router        *router.Router
+	mux           sync.Mutex
+	timer         *time.Timer
+	quitChannel   chan bool
+	ChunkChannel  chan utils.Chunk
 }
 
 // NewDataHandler function
-func NewDataHandler(filename, origin, destination string, hash utils.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
+func NewDataHandler(name, filename, origin, destination string, hash utils.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
 	return &DataHandler{
-		file:         file.NewDownloadingFile(filename),
-		origin:       origin,
-		chunk:        0,
-		currentPeer:  destination,
-		metaHash:     hash,
-		stopped:      false,
-		connection:   peerConection,
-		router:       router,
-		timer:        &time.Timer{},
-		quitChannel:  make(chan bool),
-		ChunkChannel: make(chan utils.Chunk),
+		Name:          name,
+		file:          file.NewDownloadingFile(filename),
+		origin:        origin,
+		chunk:         0,
+		currentPeer:   destination,
+		expectingHash: hash,
+		stopped:       false,
+		connection:    peerConection,
+		router:        router,
+		timer:         &time.Timer{},
+		quitChannel:   make(chan bool),
+		ChunkChannel:  make(chan utils.Chunk),
 	}
 }
 
@@ -120,13 +122,17 @@ func (handler *DataHandler) Start(onStopHandler func()) {
 
 func (handler *DataHandler) Stop() {
 	logger.Log("Stopping data handler")
-	handler.stopped = true
-	close(handler.ChunkChannel)
+	if !handler.stopped {
+		handler.stopped = true
+		close(handler.ChunkChannel)
+		return
+	}
+	logger.Log("Data Handler already stopped....")
 }
 
-// GetMetaHashStr get
-func (handler *DataHandler) GetMetaHashStr() string {
-	return handler.metaHash.String()
+// GetExpectingHashStr get
+func (handler *DataHandler) GetExpectingHashStr() string {
+	return handler.expectingHash.String()
 }
 
 // GetFile get
@@ -140,10 +146,10 @@ func (handler *DataHandler) GetCurrentPeer() string {
 }
 
 func (handler *DataHandler) sendRequest() {
-	requestHash := handler.metaHash
 	if handler.gotMetafile {
-		requestHash = handler.file.GetChunkHash(handler.chunk)
+		handler.expectingHash = handler.file.GetChunkHash(handler.chunk)
 	}
+	requestHash := handler.expectingHash
 	logger.Log(fmt.Sprintf("Sending DATA REQUEST Hash:%v", requestHash.String()))
 	msg := data.NewDataRequest(handler.origin, handler.currentPeer, uint32(10), requestHash)
 	packet := &data.GossipPacket{DataRequest: msg}
