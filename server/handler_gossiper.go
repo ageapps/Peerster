@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/pkg/data"
@@ -121,6 +122,18 @@ func sendMessage(name, msg string) bool {
 	}
 	newMsg := &data.Message{
 		Text: msg,
+	}
+	serverGossiper[name].HandleClientMessage(newMsg)
+	return true
+}
+
+func sendSearchMessage(name, keyboards string) bool {
+	if serverGossiper[name] == nil {
+		return false
+	}
+	newMsg := &data.Message{
+		Keywords: strings.Split(keyboards, ","),
+		Budget:   uint64(2),
 	}
 	serverGossiper[name].HandleClientMessage(newMsg)
 	return true

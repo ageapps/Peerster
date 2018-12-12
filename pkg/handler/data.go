@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ageapps/Peerster/pkg/file"
+	"github.com/ageapps/Peerster/pkg/utils"
 
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/router"
@@ -18,49 +19,45 @@ import (
 // charge of requesting data from other peers
 // FileName            string
 // MetaHash            data.HashValue
-// active              bool
-// currentlyRequesting bool
+// stopped              bool
 // connection          *ConnectionHandler
 // router              *router.Router
 // mux                 sync.Mutex
 // quitChannel         chan bool
 // resetChannel        chan bool
-// StopChannel         chan bool
 //
 type DataHandler struct {
-	file                *file.File
-	origin              string
-	chunk               int
-	metaHash            data.HashValue
-	gotMetafile         bool
-	currentPeer         string
-	active              bool
-	currentlyRequesting bool
-	connection          *ConnectionHandler
-	router              *router.Router
-	mux                 sync.Mutex
-	timer               *time.Timer
-	quitChannel         chan bool
-	StopChannel         chan bool
-	ChunkChannel        chan data.Chunk
+	Name          string
+	file          *file.File
+	origin        string
+	chunk         int
+	expectingHash utils.HashValue
+	gotMetafile   bool
+	currentPeer   string
+	stopped       bool
+	connection    *ConnectionHandler
+	router        *router.Router
+	mux           sync.Mutex
+	timer         *time.Timer
+	quitChannel   chan bool
+	ChunkChannel  chan utils.Chunk
 }
 
 // NewDataHandler function
-func NewDataHandler(filename, origin, destination string, hash data.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
+func NewDataHandler(name, filename, origin, destination string, hash utils.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
 	return &DataHandler{
-		file:                file.NewDownloadingFile(filename),
-		origin:              origin,
-		chunk:               0,
-		currentPeer:         destination,
-		metaHash:            hash,
-		active:              false,
-		currentlyRequesting: false,
-		connection:          peerConection,
-		router:              router,
-		timer:               &time.Timer{},
-		quitChannel:         make(chan bool),
-		StopChannel:         make(chan bool),
-		ChunkChannel:        make(chan data.Chunk),
+		Name:          name,
+		file:          file.NewDownloadingFile(filename),
+		origin:        origin,
+		chunk:         0,
+		currentPeer:   destination,
+		expectingHash: hash,
+		stopped:       false,
+		connection:    peerConection,
+		router:        router,
+		timer:         &time.Timer{},
+		quitChannel:   make(chan bool),
+		ChunkChannel:  make(chan utils.Chunk),
 	}
 }
 
@@ -80,7 +77,7 @@ func (handler *DataHandler) getTimer() *time.Timer {
 }
 
 // Start handler
-func (handler *DataHandler) Start() {
+func (handler *DataHandler) Start(onStopHandler func()) {
 	go handler.resetTimer()
 	handler.sendRequest()
 	handler.handleTimeout()
@@ -88,7 +85,6 @@ func (handler *DataHandler) Start() {
 		for chunk := range handler.ChunkChannel {
 			go handler.resetTimer()
 			handler.handleTimeout()
-			logger.Logf("RECEIVED CHUNK")
 
 			// First chunk received is the metafile
 			if !handler.gotMetafile && chunk.Data != nil {
@@ -116,15 +112,27 @@ func (handler *DataHandler) Start() {
 				handler.sendRequest()
 			}
 		}
-		close(handler.ChunkChannel)
-		close(handler.StopChannel)
+		if !handler.stopped {
+			close(handler.ChunkChannel)
+		}
+		onStopHandler()
 	}()
 
 }
 
-// GetMetaHashStr get
-func (handler *DataHandler) GetMetaHashStr() string {
-	return handler.metaHash.String()
+func (handler *DataHandler) Stop() {
+	logger.Log("Stopping data handler")
+	if !handler.stopped {
+		handler.stopped = true
+		close(handler.ChunkChannel)
+		return
+	}
+	logger.Log("Data Handler already stopped....")
+}
+
+// GetExpectingHashStr get
+func (handler *DataHandler) GetExpectingHashStr() string {
+	return handler.expectingHash.String()
 }
 
 // GetFile get
@@ -138,10 +146,10 @@ func (handler *DataHandler) GetCurrentPeer() string {
 }
 
 func (handler *DataHandler) sendRequest() {
-	requestHash := handler.metaHash
 	if handler.gotMetafile {
-		requestHash = handler.file.GetChunkHash(handler.chunk)
+		handler.expectingHash = handler.file.GetChunkHash(handler.chunk)
 	}
+	requestHash := handler.expectingHash
 	logger.Log(fmt.Sprintf("Sending DATA REQUEST Hash:%v", requestHash.String()))
 	msg := data.NewDataRequest(handler.origin, handler.currentPeer, uint32(10), requestHash)
 	packet := &data.GossipPacket{DataRequest: msg}

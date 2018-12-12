@@ -1,5 +1,9 @@
 package data
 
+import (
+	"reflect"
+)
+
 const (
 	// PACKET_SIMPLE type
 	PACKET_SIMPLE = "SIMPLE"
@@ -13,82 +17,81 @@ const (
 	PACKET_DATA_REQUEST = "DATA_REQUEST"
 	// PACKET_DATA_REPLY type
 	PACKET_DATA_REPLY = "DATA_REPLY"
+	// PACKET_SEARCH_REQUEST type
+	PACKET_SEARCH_REQUEST = "SEARCH_REQUEST"
+	// PACKET_SEARCH_REPLY type
+	PACKET_SEARCH_REPLY = "SEARCH_REPLY"
+	// PACKET_SEARCH_RESULT type
+	PACKET_SEARCH_RESULT = "SEARCH_RESULT"
 )
 
 // GossipPacket struct
 type GossipPacket struct {
-	Simple      *SimpleMessage
-	Rumor       *RumorMessage
-	Status      *StatusPacket
-	Private     *PrivateMessage
-	DataRequest *DataRequest
-	DataReply   *DataReply
-}
-
-// StatusPacket to send
-type StatusPacket struct {
-	Want  []PeerStatus
-	Route string
-}
-
-// NewSimpleMessage create
-func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
-	return &SimpleMessage{
-		OriginalName:  ogname,
-		RelayPeerAddr: relay,
-		Contents:      msg,
-	}
-}
-
-// NewStatusPacket create
-func NewStatusPacket(want *[]PeerStatus, route string) *StatusPacket {
-	if want != nil {
-		return &StatusPacket{Want: *want}
-	}
-	return &StatusPacket{Route: route}
-}
-
-// NewRumorMessage create
-func NewRumorMessage(origin string, ID uint32, text string) *RumorMessage {
-	return &RumorMessage{origin, ID, text}
-}
-
-// NewPrivateMessage create
-func NewPrivateMessage(origin string, ID uint32, destination, text string, hops uint32) *PrivateMessage {
-	return &PrivateMessage{origin, ID, destination, text, hops}
-}
-
-// NewDataRequest create
-func NewDataRequest(origin, destination string, hops uint32, hash HashValue) *DataRequest {
-	return &DataRequest{origin, destination, hops, hash}
-}
-
-// NewDataReply create
-func NewDataReply(origin, destination string, hops uint32, hash HashValue, data []byte) *DataReply {
-	return &DataReply{origin, destination, hops, hash, data}
-}
-
-// IsRouteStatus create
-func (status *StatusPacket) IsRouteStatus() bool {
-	return status.Route != ""
+	Simple        *SimpleMessage
+	Rumor         *RumorMessage
+	Status        *StatusPacket
+	Private       *PrivateMessage
+	DataRequest   *DataRequest
+	DataReply     *DataReply
+	SearchRequest *SearchRequest
+	SearchReply   *SearchReply
+	SearchResult  *SearchResult
 }
 
 // GetPacketType function
 func (packet *GossipPacket) GetPacketType() string {
-	switch {
-	case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
-		return PACKET_RUMOR
-	case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
-		return PACKET_STATUS
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
-		return PACKET_SIMPLE
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private != nil && packet.DataReply == nil && packet.DataRequest == nil:
-		return PACKET_PRIVATE
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply != nil && packet.DataRequest == nil:
-		return PACKET_DATA_REPLY
-	case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest != nil:
-		return PACKET_DATA_REQUEST
-	default:
-		return ""
+	types := []string{
+		PACKET_SIMPLE,
+		PACKET_RUMOR,
+		PACKET_STATUS,
+		PACKET_PRIVATE,
+		PACKET_DATA_REPLY,
+		PACKET_DATA_REQUEST,
+		PACKET_SEARCH_REPLY,
+		PACKET_SEARCH_REQUEST,
+		PACKET_SEARCH_RESULT,
 	}
+	var values []interface{}
+	values = append(values, packet.Simple)
+	values = append(values, packet.Rumor)
+	values = append(values, packet.Status)
+	values = append(values, packet.Private)
+	values = append(values, packet.DataReply)
+	values = append(values, packet.DataRequest)
+	values = append(values, packet.SearchReply)
+	values = append(values, packet.SearchRequest)
+	values = append(values, packet.SearchResult)
+
+	notNull := -1
+
+	for index := 0; index < len(values); index++ {
+		if !reflect.ValueOf(values[index]).IsNil() {
+			//fmt.Printf("YYYYYY %v - %v - %v\n", types[index], notNull, values[index])
+			// 2 or more properties where != null
+			if notNull >= 0 {
+				return ""
+			}
+			notNull = index
+		}
+	}
+	if notNull >= 0 {
+		return types[notNull]
+	}
+	return ""
+	// switch {
+	// case packet.Rumor != nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
+	// 	return PACKET_RUMOR
+	// case packet.Rumor == nil && packet.Status != nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
+	// 	return PACKET_STATUS
+	// case packet.Rumor == nil && packet.Status == nil && packet.Simple != nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest == nil:
+	// 	return PACKET_SIMPLE
+	// case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private != nil && packet.DataReply == nil && packet.DataRequest == nil:
+	// 	return PACKET_PRIVATE
+	// case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply != nil && packet.DataRequest == nil:
+	// 	return PACKET_DATA_REPLY
+	// case packet.Rumor == nil && packet.Status == nil && packet.Simple == nil && packet.Private == nil && packet.DataReply == nil && packet.DataRequest != nil:
+	// 	return PACKET_DATA_REQUEST
+	// default:
+	// 	return ""
+	// }
 }

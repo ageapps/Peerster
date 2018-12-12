@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 
@@ -60,7 +61,6 @@ func (router *Router) entryExists(origin string) (isNew bool) {
 // AddIfNotExists adds entry if there's none for the origin address
 func (router *Router) AddIfNotExists(origin, address string) {
 	router.mux.Lock()
-	defer router.mux.Unlock()
 	if !router.entryExists(origin) {
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)
@@ -70,6 +70,7 @@ func (router *Router) AddIfNotExists(origin, address string) {
 			router.addEntry(origin, &newEntry)
 		}
 	}
+	router.mux.Unlock()
 }
 
 func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {
@@ -88,4 +89,29 @@ func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, f
 		return nil, false
 	}
 	return value, true
+}
+func (router *Router) GetTableSize() int {
+	return len(router.table)
+}
+
+// GetRandomDestination func
+func (router *Router) GetRandomDestination(usedPeers map[string]int) string {
+	router.mux.Lock()
+	defer router.mux.Unlock()
+
+	var keys []string
+	for dest := range router.table {
+		keys = append(keys, dest)
+	}
+	destinationNr := len(keys)
+	if len(usedPeers) >= destinationNr {
+		return ""
+	}
+	for {
+		randIndex := rand.Int() % destinationNr
+		peerDestination := keys[randIndex]
+		if _, ok := usedPeers[peerDestination]; !ok {
+			return peerDestination
+		}
+	}
 }

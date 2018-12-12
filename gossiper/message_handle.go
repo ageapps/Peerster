@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/file"
+	"github.com/ageapps/Peerster/pkg/handler"
 	"github.com/ageapps/Peerster/pkg/logger"
+	"github.com/ageapps/Peerster/pkg/utils"
 )
 
 func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, address string) {
@@ -77,7 +81,7 @@ func (gossiper *Gossiper) handleRumorMessage(msg *data.RumorMessage, address str
 func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address string) {
 
 	isRouteStatus := msg.IsRouteStatus()
-	handler := gossiper.findMonguerHandler(address, isRouteStatus)
+	handler := gossiper.findMonguerProcess(address, isRouteStatus)
 	logger.Log(fmt.Sprint("Handler found:", handler != nil))
 	logger.Log(fmt.Sprint("STATUS received Route: ", isRouteStatus))
 
@@ -140,14 +144,14 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 
 func (gossiper *Gossiper) handleDataRequest(msg *data.DataRequest, address string) {
 	if msg.Destination == gossiper.Name {
-		ok, path := gossiper.fileExists(msg.HashValue.String())
+		path, ok := file.Exists(msg.HashValue.String())
 		if ok {
 			b, err := ioutil.ReadFile(path) // just pass the file name
 			if err != nil {
 				log.Fatal(err)
 			}
 			hashArr := sha256.Sum256(b)
-			var hash data.HashValue = hashArr[:]
+			var hash utils.HashValue = hashArr[:]
 			msg := data.NewDataReply(gossiper.Name, msg.Origin, uint32(10), hash, b)
 			gossiper.sendDataReply(msg)
 			return
@@ -165,8 +169,8 @@ func (gossiper *Gossiper) handleDataReply(msg *data.DataReply, address string) {
 	// logger.Logf("handleDataReply %v/%v", msg.Destination, msg.Origin)
 
 	if msg.Destination == gossiper.Name {
-		if handler := gossiper.findDataHandler(msg.Origin); handler != nil {
-			chunk := data.Chunk{Data: msg.Data, Hash: msg.HashValue}
+		if handler := gossiper.findDataProcess(msg.Origin, msg.HashValue.String()); handler != nil {
+			chunk := utils.Chunk{Data: msg.Data, Hash: msg.HashValue}
 			if chunk.Valid() {
 				handler.ChunkChannel <- chunk
 			} else {
@@ -181,4 +185,50 @@ func (gossiper *Gossiper) handleDataReply(msg *data.DataReply, address string) {
 	if msg.HopLimit > 0 {
 		gossiper.sendDataReply(msg)
 	}
+}
+
+func (gossiper *Gossiper) handleSearchReply(msg *data.SearchReply, address string) {
+	if msg.Destination == gossiper.Name {
+		if handler := gossiper.findSearchProcess(msg.Results); handler != nil {
+			handler.ReplyChannel <- msg
+			return
+		}
+		logger.Logf("Data reply from %v with no handler...", address)
+		return
+	}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		gossiper.sendSearchReply(msg)
+	}
+}
+
+func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address string) {
+	// Message has keyboards to search
+	name := utils.MakeHashString(strings.Join(msg.Keywords[:], ","))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	if !gossiper.duplicateProcess(name, PROCESS_SEARCH) {
+		var results []*data.SearchResult
+		for _, keyword := range msg.Keywords {
+			for _, file := range gossiper.GetIndexedFiles() {
+				if file.MatchKeyword(keyword) {
+					logger.Logf("Match found for %v in %v requested by %v", keyword, file.Name, msg.Origin)
+					results = append(results, data.NewSearchResult(file.Name, file.GetMetaHash(), file.GetChunkMap(), file.GetChunkCount()))
+				}
+			}
+		}
+		if len(results) > 0 {
+			resply := data.NewSearchReply(gossiper.Name, msg.Origin, uint32(10), results)
+			gossiper.sendSearchReply(resply)
+		} else {
+			logger.Logf("No matches found from request %v", msg.Keywords)
+		}
+		msg.Budget--
+		if msg.Budget > 0 && msg.Budget < handler.MaxBudget {
+			gossiper.launchSearchProcess(msg.Keywords, msg.Budget, msg.Origin)
+		}
+		return
+	}
+	logger.Logf("Search request of - %v - is duplicate", msg.Keywords)
 }

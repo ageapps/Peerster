@@ -73,3 +73,12 @@ func (gossiper *Gossiper) sendDataReply(msg *data.DataReply) {
 		logger.Logf("INVALID DATA REPLY Dest:%v", msg.Destination)
 	}
 }
+func (gossiper *Gossiper) sendSearchReply(msg *data.SearchReply) {
+	packet := &data.GossipPacket{SearchReply: msg}
+	if destinationAdress, ok := gossiper.router.GetDestination(msg.Destination); ok {
+		logger.Log(fmt.Sprintf("Sending SEARCH REPLY Dest:%v", msg.Destination))
+		gossiper.peerConection.SendPacketToPeer(destinationAdress.String(), packet)
+	} else {
+		logger.Logf("INVALID SEARCH REPLY Dest:%v", msg.Destination)
+	}
+}

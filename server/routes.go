@@ -28,4 +28,5 @@ var routes = Routes{
 	Route{"Delete", "POST", "/delete", Delete},
 	Route{"Upload", "POST", "/upload", Upload},
 	Route{"Upload", "POST", "/request", PostRequest},
+	Route{"Upload", "POST", "/search", PostSearch},
 }
