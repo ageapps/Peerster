@@ -26,7 +26,7 @@ func (gossiper *Gossiper) handleSimpleMessage(msg *data.SimpleMessage, address s
 func (gossiper *Gossiper) handlePeerPrivateMessage(msg *data.PrivateMessage, address string) {
 	if msg.Destination == gossiper.Name {
 		gossiper.privateStack.AddMessage(*msg)
-		logger.LogPrivate(*msg)
+		logger.LogPrivate((*msg).Origin, fmt.Sprint((*msg).HopLimit), (*msg).Text)
 		return
 	}
 	msg.HopLimit--
@@ -43,7 +43,7 @@ func (gossiper *Gossiper) handleRumorMessage(msg *data.RumorMessage, address str
 		logger.Log(fmt.Sprintf("Received ROUTE RUMOR"))
 		routeNode = msg.Origin
 	} else {
-		logger.LogRumor(*msg, address)
+		logger.LogRumor((*msg).Origin, address, fmt.Sprint((*msg).ID), (*msg).Text)
 	}
 	logger.LogPeers(gossiper.peers.String())
 
@@ -106,7 +106,11 @@ func (gossiper *Gossiper) handleStatusMessage(msg *data.StatusPacket, address st
 		}
 		return
 	}
-	logger.LogStatus(*msg, address)
+	logStr := ""
+	for _, status := range msg.Want {
+		logStr += fmt.Sprintf("peer %v nextID %v ", status.Identifier, status.NextID)
+	}
+	logger.LogStatus(logStr, address)
 	logger.LogPeers(gossiper.peers.String())
 	inSync := true
 

@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"strings"
-
-	"github.com/ageapps/Peerster/pkg/data"
 )
 
 // Logger struct
@@ -25,22 +23,18 @@ var instance = Logger{
 }
 
 // LogRumor func
-func LogRumor(msg data.RumorMessage, from string) {
-	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", msg.Origin, from, msg.ID, msg.Text)
+func LogRumor(origin, from, id, text string) {
+	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", origin, from, id, text)
 }
 
 // LogStatus func
-func LogStatus(msg data.StatusPacket, from string) {
-	logStr := ""
-	for _, status := range msg.Want {
-		logStr += fmt.Sprintf("peer %v nextID %v ", status.Identifier, status.NextID)
-	}
-	fmt.Printf("STATUS from %v %v\n", from, logStr)
+func LogStatus(wanted, from string) {
+	fmt.Printf("STATUS from %v %v\n", from, wanted)
 }
 
 // LogSimple func
-func LogSimple(msg data.SimpleMessage) {
-	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v\n", msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
+func LogSimple(origin, relay, content string) {
+	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v\n", origin, relay, content)
 }
 
 // LogPeers func
@@ -54,8 +48,8 @@ func LogInSync(peer string) {
 }
 
 // LogClient func
-func LogClient(msg data.Message) {
-	fmt.Printf("CLIENT MESSAGE %v\n", msg.Text)
+func LogClient(text string) {
+	fmt.Printf("CLIENT MESSAGE %v\n", text)
 }
 
 // LogCoin func
@@ -74,8 +68,8 @@ func LogDSDV(origin, address string) {
 }
 
 // LogPrivate func
-func LogPrivate(msg data.PrivateMessage) {
-	fmt.Printf("PRIVATE origin %v hop-limit %v contents %v \n", msg.Origin, msg.HopLimit, msg.Text)
+func LogPrivate(origin, hops, text string) {
+	fmt.Printf("PRIVATE origin %v hop-limit %v contents %v \n", origin, hops, text)
 }
 
 // LogMetafile func
@@ -93,10 +87,15 @@ func LogReconstructed(filename string) {
 	fmt.Printf("RECONSTRUCTED file %v \n", filename)
 }
 
-// LogFound func
-func LogFound(filename, origin, metafile string, chunks []uint64) {
+// LogFoundFile func
+func LogFoundFile(filename, origin, metafile string, chunks []uint64) {
 	indexes := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(chunks)), ","), "[]")
 	fmt.Printf("FOUND match %v at %v metafile=%v chunks=%v\n", filename, origin, metafile, indexes)
+}
+
+// LogFoundBlock func
+func LogFoundBlock(hash string) {
+	fmt.Printf("FOUND-BLOCK %v\n", hash)
 }
 
 // LogSearchFinished func

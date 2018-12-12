@@ -24,8 +24,10 @@ const metafileDir = "._Metafiles"
 
 // File struct
 type File struct {
-	Name     string `json:"name"`
-	metadata *Metadata
+	Name         string `json:"name"`
+	metadata     *Metadata
+	Size         int64
+	MetafileHash []byte
 }
 
 // NewFileFromLocalAsync create

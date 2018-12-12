@@ -23,6 +23,10 @@ const (
 	PACKET_SEARCH_REPLY = "SEARCH_REPLY"
 	// PACKET_SEARCH_RESULT type
 	PACKET_SEARCH_RESULT = "SEARCH_RESULT"
+	// PACKET_TX_PUBLISH type
+	PACKET_TX_PUBLISH = "TX_PUBLISH"
+	// PACKET_BLOCK_PUBLISH type
+	PACKET_BLOCK_PUBLISH = "BLOCK_PUBLISH"
 )
 
 // GossipPacket struct
@@ -35,7 +39,8 @@ type GossipPacket struct {
 	DataReply     *DataReply
 	SearchRequest *SearchRequest
 	SearchReply   *SearchReply
-	SearchResult  *SearchResult
+	TxPublish     *TxPublish
+	BlockPublish  *BlockPublish
 }
 
 // GetPacketType function
@@ -49,7 +54,8 @@ func (packet *GossipPacket) GetPacketType() string {
 		PACKET_DATA_REQUEST,
 		PACKET_SEARCH_REPLY,
 		PACKET_SEARCH_REQUEST,
-		PACKET_SEARCH_RESULT,
+		PACKET_TX_PUBLISH,
+		PACKET_BLOCK_PUBLISH,
 	}
 	var values []interface{}
 	values = append(values, packet.Simple)
@@ -60,7 +66,8 @@ func (packet *GossipPacket) GetPacketType() string {
 	values = append(values, packet.DataRequest)
 	values = append(values, packet.SearchReply)
 	values = append(values, packet.SearchRequest)
-	values = append(values, packet.SearchResult)
+	values = append(values, packet.TxPublish)
+	values = append(values, packet.BlockPublish)
 
 	notNull := -1
 

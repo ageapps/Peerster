@@ -125,7 +125,7 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 
 	switch {
 	case gossiper.simpleMode:
-		logger.LogClient(*msg)
+		logger.LogClient((*msg).Text)
 
 		newMsg := data.NewSimpleMessage(gossiper.Name, msg.Text, gossiper.Address.String())
 		gossiper.peerConection.BroadcastPacket(gossiper.peers, &data.GossipPacket{Simple: newMsg}, gossiper.Address.String())
@@ -138,7 +138,7 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 		gossiper.launchSearchProcess(msg.Keywords, msg.Budget, gossiper.Name)
 		// Asign budget
 	default:
-		logger.LogClient(*msg)
+		logger.LogClient((*msg).Text)
 		// Reset used peers for timers
 		go gossiper.resetUsedPeers()
 		id := gossiper.rumorCounter.Increment()
@@ -158,7 +158,7 @@ func (gossiper *Gossiper) handleClientDirectMessage(msg *data.Message) {
 		gossiper.launchDataProcess(msg.FileName, msg.Destination, hash)
 	} else {
 		// Message is a private message
-		logger.LogClient(*msg)
+		logger.LogClient((*msg).Text)
 		// Message is private
 		id := gossiper.privateCounter.Increment()
 		privateMessage := data.NewPrivateMessage(gossiper.Name, id, msg.Destination, msg.Text, uint32(10))
@@ -191,7 +191,8 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 	case data.PACKET_SEARCH_REPLY:
 		gossiper.handleSearchReply(packet.SearchReply, originAddress)
 	case data.PACKET_SIMPLE:
-		logger.LogSimple(*packet.Simple)
+		msg := *packet.Simple
+		logger.LogSimple(msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
 		logger.LogPeers(gossiper.peers.String())
 		gossiper.handleSimpleMessage(packet.Simple, originAddress)
 	default:
@@ -227,7 +228,7 @@ func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64, 
 	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
 	searchProcess.Start(func(fileFound *data.FileResult) { // onFileReceived
 		if !gossiper.fileExists(fileFound.MetafileHash.String()) {
-			logger.LogFound(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash.String(), fileFound.ChunkMap)
+			logger.LogFoundFile(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash.String(), fileFound.ChunkMap)
 			gossiper.launchDataProcess(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash)
 		}
 	}, func() { // onStopHandler
