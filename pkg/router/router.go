@@ -90,6 +90,8 @@ func (router *Router) GetDestination(origin string) (entry *utils.PeerAddress, f
 	}
 	return value, true
 }
+
+// GetTableSize func
 func (router *Router) GetTableSize() int {
 	return len(router.table)
 }

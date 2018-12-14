@@ -3,23 +3,62 @@ package data
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 
 	"github.com/ageapps/Peerster/pkg/file"
 )
 
+// TxPublish struct
 type TxPublish struct {
 	File     file.File
 	HopLimit uint32
 }
+
+// Bundle struct
+type Bundle struct {
+	Tx   *TxPublish
+	Blob *file.Blob
+}
+
+// BlockPublish struct
 type BlockPublish struct {
 	Block    Block
 	HopLimit uint32
 }
 
+// Block stuct
 type Block struct {
 	PrevHash     [32]byte
 	Nonce        [32]byte
 	Transactions []TxPublish
+}
+
+// NewBlock func
+func NewBlock(prev [32]byte) *Block {
+	return &Block{
+		PrevHash:     prev,
+		Transactions: []TxPublish{},
+	}
+}
+
+// AppendTransaction func
+func (block *Block) AppendTransaction(tx TxPublish) {
+	block.Transactions = append(block.Transactions, tx)
+}
+
+// AppendTransaction func
+func (block *Block) String() string {
+	return hex.EncodeToString(block.Nonce[:])
+}
+
+// NewTXPublish func
+func NewTXPublish(file file.File, hops uint32) *TxPublish {
+	return &TxPublish{file, hops}
+}
+
+// NewBlockPublish func
+func NewBlockPublish(block Block, hops uint32) *BlockPublish {
+	return &BlockPublish{block, hops}
 }
 
 func (b *Block) Hash() (out [32]byte) {

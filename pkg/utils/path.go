@@ -16,8 +16,8 @@ func GetRootPath() string {
 	return path.Join(basepath, "..", "..")
 }
 
-// GetFilesPath get
-func GetFilesPath() string {
+// GetBlobsPath get
+func GetBlobsPath() string {
 	// return path.Join(GetRootPath(), "files")
 	return GetRootPath()
 }

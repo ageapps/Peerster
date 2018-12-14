@@ -20,7 +20,7 @@ const MaxBudget = 32
 // DefaultBudget used
 const DefaultBudget = uint64(2)
 
-// MatchThreshold needed to stop searching
+// DefaultMatchThreshold needed to stop searching
 const DefaultMatchThreshold = 2
 
 // SearchHandler is a handler that will be in
@@ -200,7 +200,7 @@ func (handler *SearchHandler) sendRequest() {
 	}
 }
 
-// MatchesResults funtion checks if the results match keywords in prcess
+// MatchesResults function checks if the results match keywords in prcess
 func (handler *SearchHandler) MatchesResults(results []*data.SearchResult) bool {
 	matchFile := true
 	for _, result := range results {

@@ -1,9 +1,9 @@
 package gossiper
 
 import (
-	"fmt"
 	"log"
 
+	"github.com/ageapps/Peerster/pkg/chain"
 	"github.com/ageapps/Peerster/pkg/file"
 
 	"github.com/ageapps/Peerster/pkg/data"
@@ -84,30 +84,28 @@ func (gossiper *Gossiper) Stop() {
 
 // GetFiles map <metahash>:name
 func (gossiper *Gossiper) GetFiles() map[string]string {
+	fileMap := make(map[string]string)
 	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	files := make(map[string]string)
-	fmt.Sprintln(len(gossiper.indexedFiles))
-	for k, v := range gossiper.indexedFiles {
-		files[k] = v.Name
+	store := gossiper.chainHandler.GetFileStore()
+	files := store.GetFiles()
+	for k, v := range files {
+		fileMap[k] = v.Name
 	}
-	return files
+	gossiper.mux.Unlock()
+	return fileMap
 }
 
-// GetIndexedFiles func
-func (gossiper *Gossiper) GetIndexedFiles() map[string]*file.File {
-	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	return gossiper.indexedFiles
+// PublishBundle func
+func (gossiper *Gossiper) PublishBundle(file *file.File, blob *file.Blob, hops uint32) {
+	msg := data.NewTXPublish(*file, hops)
+	gossiper.chainHandler.BundleChannel <- &data.Bundle{Tx: msg, Blob: blob}
 }
 
-// IndexFile into gossiper
-func (gossiper *Gossiper) IndexFile(name string) {
-	file, err := file.NewFileFromLocalSync(name)
-	if err != nil {
-		log.Fatal(err)
-	}
-	gossiper.addFile(file)
+// GetChainHandler func
+func (gossiper *Gossiper) GetChainHandler() *chain.ChainHandler {
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+	return gossiper.chainHandler
 }
 
 // GetRoutes returns the routing table
@@ -116,21 +114,6 @@ func (gossiper *Gossiper) GetRoutes() *router.RoutingTable {
 	defer gossiper.mux.Unlock()
 
 	return gossiper.router.GetTable()
-}
-
-func (gossiper *Gossiper) fileExists(hash string) bool {
-	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	_, ok := gossiper.indexedFiles[hash]
-	return ok
-}
-
-func (gossiper *Gossiper) addFile(newFile *file.File) {
-	logger.Logf("Indexing new file : %v", newFile.Name)
-	gossiper.mux.Lock()
-	hash := newFile.GetMetaHash()
-	gossiper.indexedFiles[hash.String()] = newFile
-	gossiper.mux.Unlock()
 }
 
 func (gossiper *Gossiper) resetUsedPeers() {
@@ -144,4 +127,13 @@ func (gossiper *Gossiper) GetUsedPeers() map[string]bool {
 	gossiper.mux.Lock()
 	defer gossiper.mux.Unlock()
 	return gossiper.usedPeers
+}
+
+// SaveLocalFile func
+func SaveLocalFile(name string) (*file.Blob, *file.File) {
+	blob, err := file.NewBlobFromLocalSync(name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return blob, &file.File{blob.GetName(), blob.GetBlobSize(), blob.GetMetaHash()}
 }

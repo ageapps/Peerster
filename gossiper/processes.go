@@ -12,9 +12,12 @@ import (
 type ProcessType string
 
 const (
+	// PROCESS_MONGUER var
 	PROCESS_MONGUER ProcessType = "PROCESS_MONGUER"
-	PROCESS_DATA    ProcessType = "PROCESS_DATA"
-	PROCESS_SEARCH  ProcessType = "PROCESS_SEARCH"
+	// PROCESS_DATA var
+	PROCESS_DATA ProcessType = "PROCESS_DATA"
+	// PROCESS_SEARCH var
+	PROCESS_SEARCH ProcessType = "PROCESS_SEARCH"
 )
 
 func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType) {
@@ -27,9 +30,9 @@ func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType
 		gossiper.monguerPocesses[name] = regProcess
 
 	case PROCESS_DATA:
-		regProcess := process.(*handler.DataHandler)
+		regProcess := process.(*handler.FileHandler)
 		name = regProcess.Name
-		gossiper.dataProcesses[name] = regProcess
+		gossiper.fileProcesses[name] = regProcess
 
 	case PROCESS_SEARCH:
 		regProcess := process.(*handler.SearchHandler)
@@ -38,7 +41,6 @@ func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType
 	}
 	gossiper.mux.Unlock()
 	logger.Logf("Registering %v - %v", ptype, name)
-
 }
 
 func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
@@ -50,9 +52,9 @@ func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
 		gossiper.monguerPocesses[name] = nil
 		delete(gossiper.monguerPocesses, name)
 	case PROCESS_DATA:
-		_, found = gossiper.dataProcesses[name]
-		gossiper.dataProcesses[name] = nil
-		delete(gossiper.dataProcesses, name)
+		_, found = gossiper.fileProcesses[name]
+		gossiper.fileProcesses[name] = nil
+		delete(gossiper.fileProcesses, name)
 
 	case PROCESS_SEARCH:
 		_, found = gossiper.searchProcesses[name]
@@ -70,7 +72,7 @@ func (gossiper *Gossiper) duplicateProcess(name string, ptype ProcessType) bool 
 	case PROCESS_MONGUER:
 		_, exists = gossiper.monguerPocesses[name]
 	case PROCESS_DATA:
-		_, exists = gossiper.dataProcesses[name]
+		_, exists = gossiper.fileProcesses[name]
 
 	case PROCESS_SEARCH:
 		_, exists = gossiper.searchProcesses[name]
@@ -85,10 +87,10 @@ func (gossiper *Gossiper) getMongerProcesses() map[string]*handler.MongerHandler
 	return gossiper.monguerPocesses
 }
 
-func (gossiper *Gossiper) getDataProcesses() map[string]*handler.DataHandler {
+func (gossiper *Gossiper) getDataProcesses() map[string]*handler.FileHandler {
 	gossiper.mux.Lock()
 	defer gossiper.mux.Unlock()
-	return gossiper.dataProcesses
+	return gossiper.fileProcesses
 }
 
 func (gossiper *Gossiper) getSeachProcesses() map[string]*handler.SearchHandler {
@@ -106,7 +108,7 @@ func (gossiper *Gossiper) findMonguerProcess(originAddress string, routeMonguer 
 	}
 	return nil
 }
-func (gossiper *Gossiper) findDataProcess(origin string, hash string) *handler.DataHandler {
+func (gossiper *Gossiper) findDataProcess(origin string, hash string) *handler.FileHandler {
 	processes := gossiper.getDataProcesses()
 	for _, process := range processes {
 		if strings.Contains(process.Name, origin) && process.GetExpectingHashStr() == hash {

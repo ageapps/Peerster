@@ -6,19 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ageapps/Peerster/pkg/file"
 	"github.com/ageapps/Peerster/pkg/utils"
 
+	"github.com/ageapps/Peerster/pkg/data"
+	"github.com/ageapps/Peerster/pkg/file"
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/router"
-
-	"github.com/ageapps/Peerster/pkg/data"
 )
 
-// DataHandler is a handler that will be in
+// FileHandler is a handler that will be in
 // charge of requesting data from other peers
 // FileName            string
-// MetaHash            data.HashValue
+// MetaHash            utils.HashValue
 // stopped              bool
 // connection          *ConnectionHandler
 // router              *router.Router
@@ -26,9 +25,10 @@ import (
 // quitChannel         chan bool
 // resetChannel        chan bool
 //
-type DataHandler struct {
+type FileHandler struct {
 	Name          string
 	file          *file.File
+	blob          *file.Blob
 	origin        string
 	chunk         int
 	expectingHash utils.HashValue
@@ -44,10 +44,11 @@ type DataHandler struct {
 }
 
 // NewDataHandler function
-func NewDataHandler(name, filename, origin, destination string, hash utils.HashValue, peerConection *ConnectionHandler, router *router.Router) *DataHandler {
-	return &DataHandler{
+func NewDataHandler(name, filename, origin, destination string, hash utils.HashValue, peerConection *ConnectionHandler, router *router.Router) *FileHandler {
+	return &FileHandler{
 		Name:          name,
-		file:          file.NewDownloadingFile(filename),
+		file:          file.NewFile(filename, 0, []byte{}),
+		blob:          file.NewDownloadingBlob(filename),
 		origin:        origin,
 		chunk:         0,
 		currentPeer:   destination,
@@ -61,7 +62,7 @@ func NewDataHandler(name, filename, origin, destination string, hash utils.HashV
 	}
 }
 
-func (handler *DataHandler) resetTimer() {
+func (handler *FileHandler) resetTimer() {
 	//logger.Log("Launching new timer")
 	if handler.getTimer().C != nil {
 		handler.getTimer().Stop()
@@ -70,14 +71,14 @@ func (handler *DataHandler) resetTimer() {
 	handler.timer = time.NewTimer(5 * time.Second)
 	handler.mux.Unlock()
 }
-func (handler *DataHandler) getTimer() *time.Timer {
+func (handler *FileHandler) getTimer() *time.Timer {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
 	return handler.timer
 }
 
 // Start handler
-func (handler *DataHandler) Start(onStopHandler func()) {
+func (handler *FileHandler) Start(onStopHandler func()) {
 	go handler.resetTimer()
 	handler.sendRequest()
 	handler.handleTimeout()
@@ -88,16 +89,17 @@ func (handler *DataHandler) Start(onStopHandler func()) {
 
 			// First chunk received is the metafile
 			if !handler.gotMetafile && chunk.Data != nil {
-				if err := handler.file.AddMetafile(chunk.Data, chunk.Hash); err != nil {
+				if err := handler.blob.AddMetafile(chunk.Data, chunk.Hash); err != nil {
 					log.Fatal(err)
 				}
+				handler.file.SetMetaHash(chunk.Hash)
 				logger.Logf("Saved Metafile: %v", chunk.Hash.String())
 				handler.gotMetafile = true
 				logger.LogMetafile(handler.file.Name, handler.currentPeer)
 				handler.sendRequest()
 				// Normal chunk received
 			} else {
-				if err := handler.file.AddChunk(chunk.Data, chunk.Hash); err != nil {
+				if err := handler.blob.AddChunk(chunk.Data, chunk.Hash); err != nil {
 					log.Fatal(err)
 				}
 				logger.Logf("Added Chunk: %v", chunk.Hash.String())
@@ -106,7 +108,13 @@ func (handler *DataHandler) Start(onStopHandler func()) {
 				if int64(len(chunk.Data)) < file.ChunckSize {
 					// last chunk of file
 					handler.getTimer().Stop()
-					go handler.file.Reconstruct()
+					go func() {
+						size, err := handler.blob.Reconstruct()
+						if err != nil {
+							log.Fatal(err)
+						}
+						handler.file.SetSize(size)
+					}()
 					break
 				}
 				handler.sendRequest()
@@ -120,7 +128,8 @@ func (handler *DataHandler) Start(onStopHandler func()) {
 
 }
 
-func (handler *DataHandler) Stop() {
+// Stop func
+func (handler *FileHandler) Stop() {
 	logger.Log("Stopping data handler")
 	if !handler.stopped {
 		handler.stopped = true
@@ -131,23 +140,28 @@ func (handler *DataHandler) Stop() {
 }
 
 // GetExpectingHashStr get
-func (handler *DataHandler) GetExpectingHashStr() string {
+func (handler *FileHandler) GetExpectingHashStr() string {
 	return handler.expectingHash.String()
 }
 
 // GetFile get
-func (handler *DataHandler) GetFile() *file.File {
+func (handler *FileHandler) GetFile() *file.File {
 	return handler.file
 }
 
+// GetBlob get
+func (handler *FileHandler) GetBlob() *file.Blob {
+	return handler.blob
+}
+
 // GetCurrentPeer get
-func (handler *DataHandler) GetCurrentPeer() string {
+func (handler *FileHandler) GetCurrentPeer() string {
 	return handler.currentPeer
 }
 
-func (handler *DataHandler) sendRequest() {
+func (handler *FileHandler) sendRequest() {
 	if handler.gotMetafile {
-		handler.expectingHash = handler.file.GetChunkHash(handler.chunk)
+		handler.expectingHash = handler.blob.GetChunkHash(handler.chunk)
 	}
 	requestHash := handler.expectingHash
 	logger.Log(fmt.Sprintf("Sending DATA REQUEST Hash:%v", requestHash.String()))
@@ -161,7 +175,7 @@ func (handler *DataHandler) sendRequest() {
 	}
 }
 
-func (handler *DataHandler) handleTimeout() {
+func (handler *FileHandler) handleTimeout() {
 	go func() {
 		<-handler.getTimer().C
 		fmt.Println("TIMEOUT requesting file")

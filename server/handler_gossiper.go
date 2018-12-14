@@ -59,7 +59,9 @@ func indexFileInGossiper(name, file string) map[string]string {
 		return nil
 	}
 
-	serverGossiper[name].IndexFile(file)
+	localFile := gossiper.SaveLocalFile(file)
+	serverGossiper[name].PublishFile(localFile, uint32(10))
+
 	return getGossiperFiles(name)
 }
 

@@ -215,13 +215,18 @@ func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address s
 	if !gossiper.duplicateProcess(name, PROCESS_SEARCH) {
 		var results []*data.SearchResult
 		for _, keyword := range msg.Keywords {
-			for _, file := range gossiper.GetIndexedFiles() {
-				if file.MatchKeyword(keyword) {
-					logger.Logf("Match found for %v in %v requested by %v", keyword, file.Name, msg.Origin)
-					results = append(results, data.NewSearchResult(file.Name, file.GetMetaHash(), file.GetChunkMap(), file.GetChunkCount()))
+			for _, gossiperFile := range gossiper.GetChainHandler().GetFileStore().GetFiles() {
+				if _, ok := file.MatchKeyword(keyword); ok {
+					logger.Logf("Match found for %v in %v requested by %v", keyword, gossiperFile.Name, msg.Origin)
+					if blob, found := gossiper.GetChainHandler().GetFileStore().GetBlobFromFile(gossiperFile); found {
+						results = append(results, data.NewSearchResult(gossiperFile.Name, gossiperFile.GetMetaHash(), blob.GetChunkMap(), blob.GetChunkCount()))
+					} else {
+						logger.Logf("Coundn´t find the corresponding blob to file %v", gossiperFile.Name)
+					}
 				}
 			}
 		}
+
 		if len(results) > 0 {
 			resply := data.NewSearchReply(gossiper.Name, msg.Origin, uint32(10), results)
 			gossiper.sendSearchReply(resply)
@@ -235,4 +240,13 @@ func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address s
 		return
 	}
 	logger.Logf("Search request of - %v - is duplicate", msg.Keywords)
+}
+
+func (gossiper *Gossiper) handleTXMessage(msg *data.TxPublish, address string) {
+	gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
+	gossiper.chainHandler.BundleChannel <- &data.Bundle{Tx: msg}
+}
+func (gossiper *Gossiper) handleBlockMessage(msg *data.BlockPublish, address string) {
+	gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
+	gossiper.chainHandler.BlockChannel <- msg
 }

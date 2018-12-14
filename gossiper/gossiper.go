@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ageapps/Peerster/pkg/file"
+	"github.com/ageapps/Peerster/pkg/chain"
 
 	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/handler"
@@ -28,14 +28,14 @@ type Gossiper struct {
 	privateStack    PrivateStack
 	router          *router.Router
 	monguerPocesses map[string]*handler.MongerHandler
-	dataProcesses   map[string]*handler.DataHandler
+	fileProcesses   map[string]*handler.FileHandler
 	searchProcesses map[string]*handler.SearchHandler
-	indexedFiles    map[string]*file.File
 	rumorCounter    *utils.Counter // [name] address
 	privateCounter  *utils.Counter // [name] address
 	mux             sync.Mutex
 	usedPeers       map[string]bool
 	running         bool
+	chainHandler    *chain.ChainHandler
 }
 
 // NewGossiper return new instance
@@ -60,14 +60,19 @@ func NewGossiper(addressStr, name string, simple bool, rtimer int) (*Gossiper, e
 		privateStack:    PrivateStack{Messages: make(map[string][]data.PrivateMessage)},
 		router:          router.NewRouter(),
 		monguerPocesses: make(map[string]*handler.MongerHandler),
-		dataProcesses:   make(map[string]*handler.DataHandler),
+		fileProcesses:   make(map[string]*handler.FileHandler),
 		searchProcesses: make(map[string]*handler.SearchHandler),
-		indexedFiles:    make(map[string]*file.File),
 		rumorCounter:    utils.NewCounter(uint32(0)),
 		privateCounter:  utils.NewCounter(uint32(0)),
 		usedPeers:       make(map[string]bool),
 		running:         true,
 	}
+
+	gossiper.chainHandler = chain.NewChainHandler(gossiper.Address.String(), gossiper.peerConection, gossiper.peers)
+
+	gossiper.chainHandler.Start(func() {
+		logger.Log("Chain handler stopped succesfully")
+	})
 
 	if !simple {
 		if rtimer > 0 {
@@ -119,7 +124,8 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 	logger.Logf("Message received from client \nindex: %v\nprivate: %v\nrequest: %v\nsearch: %v", msg.FileToIndex(), msg.IsDirectMessage(), msg.HasRequest(), msg.IsSearchMessage())
 
 	if msg.FileToIndex() {
-		gossiper.IndexFile(msg.FileName)
+		blob, localFile := SaveLocalFile(msg.FileName)
+		gossiper.PublishBundle(localFile, blob, uint32(10))
 		return
 	}
 
@@ -136,7 +142,7 @@ func (gossiper *Gossiper) HandleClientMessage(msg *data.Message) {
 	case msg.IsSearchMessage():
 		// Message has keyboards to search
 		gossiper.launchSearchProcess(msg.Keywords, msg.Budget, gossiper.Name)
-		// Asign budget
+		// Assign budget
 	default:
 		logger.LogClient((*msg).Text)
 		// Reset used peers for timers
@@ -174,7 +180,6 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 	}
 	packetType := packet.GetPacketType()
 	logger.Log("Received packet peer: " + packetType)
-
 	switch packetType {
 	case data.PACKET_STATUS:
 		gossiper.handleStatusMessage(packet.Status, originAddress)
@@ -190,6 +195,10 @@ func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddr
 		gossiper.handleSearchRequest(packet.SearchRequest, originAddress)
 	case data.PACKET_SEARCH_REPLY:
 		gossiper.handleSearchReply(packet.SearchReply, originAddress)
+	case data.PACKET_TX_PUBLISH:
+		gossiper.handleTXMessage(packet.TxPublish, originAddress)
+	case data.PACKET_BLOCK_PUBLISH:
+		gossiper.handleBlockMessage(packet.BlockPublish, originAddress)
 	case data.PACKET_SIMPLE:
 		msg := *packet.Simple
 		logger.LogSimple(msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
@@ -227,7 +236,7 @@ func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64, 
 
 	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
 	searchProcess.Start(func(fileFound *data.FileResult) { // onFileReceived
-		if !gossiper.fileExists(fileFound.MetafileHash.String()) {
+		if !gossiper.GetChainHandler().GetFileStore().FileExists(fileFound.MetafileHash.String()) {
 			logger.LogFoundFile(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash.String(), fileFound.ChunkMap)
 			gossiper.launchDataProcess(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash)
 		}
@@ -241,7 +250,7 @@ func (gossiper *Gossiper) launchDataProcess(filename, destination string, metaha
 	dataProcess := handler.NewDataHandler(buildDataProcessName(destination, filename), filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
 	gossiper.registerProcess(dataProcess, PROCESS_DATA)
 	dataProcess.Start(func() {
-		gossiper.addFile(dataProcess.GetFile())
+		gossiper.PublishBundle(dataProcess.GetFile(), dataProcess.GetBlob(), uint32(10))
 		gossiper.unregisterProcess(dataProcess.GetCurrentPeer(), PROCESS_DATA)
 	})
 }

@@ -93,7 +93,7 @@ func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, 
 // BroadcastPacket function
 func (handler *ConnectionHandler) BroadcastPacket(peers *utils.PeerAddresses, packet *data.GossipPacket, incommingPeer string) {
 	logger.Log("Broadcasting packet " + packet.GetPacketType())
-	for _, peer := range peers.Addresses {
+	for _, peer := range peers.GetAdresses() {
 		if incommingPeer == peer.String() {
 			continue
 		}

@@ -59,7 +59,7 @@ func (meta *Metadata) loadMetadata() error {
 	}
 
 	// 1. Open file
-	filePath := path.Join(utils.GetFilesPath(), SharedFilesDir, meta.filename)
+	filePath := path.Join(utils.GetBlobsPath(), SharedBlobsDir, meta.filename)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("error opening file: %v", err)
@@ -80,7 +80,8 @@ func (meta *Metadata) loadMetadata() error {
 
 	logger.Logf("Reading file in path %v", filePath)
 
-	var chunkIndex uint64 = 0
+	var chunkIndex uint64
+
 	for bytesNotRead > 0 {
 
 		bufferSize := ChunckSize
@@ -120,14 +121,14 @@ func (meta *Metadata) loadMetadata() error {
 }
 
 func getFileSize(filename string) (int64, error) {
-	fi, e := os.Stat(utils.GetFilesPath() + "/_SharedFiles/" + filename)
+	fi, e := os.Stat(utils.GetBlobsPath() + "/_SharedFiles/" + filename)
 	if e != nil {
 		return -1, fmt.Errorf("error estracting data from file %v, ", e)
 	}
 	return fi.Size(), nil
 }
 
-func (meta *Metadata) saveFile(path string, chunk []byte) error {
+func (meta *Metadata) saveBlob(path string, chunk []byte) error {
 	err := ioutil.WriteFile(path, chunk, 0644)
 	if err != nil {
 		return fmt.Errorf("error during write of chunk: %v", err)
@@ -158,18 +159,18 @@ func (meta *Metadata) addChunk(chunk []byte, hash utils.HashValue, local bool) e
 	//logger.Logf("Saving hash v% : %v", len(hash), hex.EncodeToString(hash))
 	//meta.fileHashes = append(meta.fileHashes, hash)
 	meta.mux.Unlock()
-	chunkFilePath := path.Join(utils.GetFilesPath(), ChunksDir, hex.EncodeToString(hash))
-	return meta.saveFile(chunkFilePath, chunk)
+	chunkFilePath := path.Join(utils.GetBlobsPath(), ChunksDir, hex.EncodeToString(hash))
+	return meta.saveBlob(chunkFilePath, chunk)
 }
 func (meta *Metadata) saveMetafile(data []byte, hash utils.HashValue) error {
 	meta.mux.Lock()
 	meta.metahash = hash
 	meta.metafile = data
 	meta.mux.Unlock()
-	metahashFilePath := path.Join(utils.GetFilesPath(), ChunksDir, hex.EncodeToString(hash))
-	metahashBackupFilePath := path.Join(utils.GetFilesPath(), metafileDir, hex.EncodeToString(hash))
-	go meta.saveFile(metahashBackupFilePath, data)
-	return meta.saveFile(metahashFilePath, data)
+	metahashFilePath := path.Join(utils.GetBlobsPath(), ChunksDir, hex.EncodeToString(hash))
+	metahashBackupFilePath := path.Join(utils.GetBlobsPath(), metafileDir, hex.EncodeToString(hash))
+	go meta.saveBlob(metahashBackupFilePath, data)
+	return meta.saveBlob(metahashFilePath, data)
 }
 
 func (meta *Metadata) addMetafile(data []byte, hash utils.HashValue) error {
