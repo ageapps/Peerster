@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"reflect"
 	"strings"
+	"sync"
+
+	"github.com/ageapps/Peerster/pkg/file"
 
 	"github.com/ageapps/Peerster/gossiper"
 	"github.com/ageapps/Peerster/pkg/data"
@@ -13,8 +15,48 @@ import (
 	"github.com/ageapps/Peerster/pkg/utils"
 )
 
+func NewGossiperPool() *GossiperPool {
+	return &GossiperPool{
+		gossipers: make(map[string]*gossiper.Gossiper),
+	}
+}
+
+// GossiperPool struct cointaining gossipers
+type GossiperPool struct {
+	gossipers map[string]*gossiper.Gossiper
+	mux       sync.Mutex
+}
+
+func (pool *GossiperPool) addGossiper(gossiper *gossiper.Gossiper) {
+	pool.mux.Lock()
+	pool.gossipers[gossiper.Name] = gossiper
+	pool.mux.Unlock()
+}
+func (pool *GossiperPool) deleteGossiper(name string) {
+	pool.mux.Lock()
+	delete(pool.gossipers, name)
+	pool.mux.Unlock()
+}
+func (pool *GossiperPool) getGossiper(name string) (foundGossiper *gossiper.Gossiper, found bool) {
+	pool.mux.Lock()
+	defer pool.mux.Unlock()
+	foundGossiper, found = pool.gossipers[name]
+	return
+}
+func (pool *GossiperPool) findGossiper(name, address string) (*gossiper.Gossiper, bool) {
+	pool.mux.Lock()
+	defer pool.mux.Unlock()
+	for _, gossiper := range pool.gossipers {
+		if gossiper.Address.String() == address || gossiper.Name == name {
+			logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", name, address))
+			return gossiper, true
+		}
+	}
+	return nil, false
+}
+
 var (
-	serverGossiper = make(map[string]*gossiper.Gossiper)
+	gossiperPool = NewGossiperPool()
 )
 
 // StatusResponse struct
@@ -25,135 +67,150 @@ type StatusResponse struct {
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 	logger.CreateLogger(name, address, true)
-	newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
-	if err != nil {
-		logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
-		for _, gossiper := range serverGossiper {
-			if gossiper.Address.String() == address || gossiper.Name == name {
-				logger.Log(fmt.Sprintf("Running gossiper found Name:%v Address:%v", name, address))
-				return gossiper.Name
+	targetGossiper, found := gossiperPool.findGossiper(name, address)
+
+	if !found {
+		newGossiper, err := gossiper.NewGossiper(address, name, false, 5)
+		if err != nil {
+			logger.Log(fmt.Sprintln("Error creating new Gossiper ", err))
+			return ""
+		}
+		targetGossiper = newGossiper
+		if peers != nil && len(peers.GetAdresses()) > 0 {
+			go targetGossiper.AddPeers(peers)
+		}
+		go func() {
+			if err := targetGossiper.ListenToPeers(); err != nil {
+				log.Fatal(err)
 			}
-		}
-		return ""
+		}()
+		gossiperPool.addGossiper(targetGossiper)
 	}
-	serverGossiper[name] = newGossiper
-	go serverGossiper[name].SetPeers(peers)
-	go func() {
-		if err := serverGossiper[name].ListenToPeers(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	return name
+	return targetGossiper.Name
 }
 
 func getGossiperRoutes(name string) *router.RoutingTable {
-	if reflect.ValueOf(serverGossiper[name]).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
 
-	return serverGossiper[name].GetRoutes()
+	return targetGossiper.GetRoutes()
 }
 
-func indexFileInGossiper(name, file string) map[string]string {
-	if serverGossiper[name] == nil {
+func indexFileInGossiper(name, file string) map[string]file.File {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
 
-	localFile := gossiper.SaveLocalFile(file)
-	serverGossiper[name].PublishFile(localFile, uint32(10))
+	blob, localFile := gossiper.SaveLocalFile(file)
+	targetGossiper.IndexAndPublishBundle(localFile, blob, uint32(10))
 
 	return getGossiperFiles(name)
 }
 
-func getGossiperFiles(name string) map[string]string {
-	if serverGossiper[name] == nil {
+func getGossiperFiles(name string) map[string]file.File {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
-	files := serverGossiper[name].GetFiles()
+	files := targetGossiper.GetFiles()
 	return files
 }
 
 func getGossiperMessages(name string) *[]data.RumorMessage {
-	if reflect.ValueOf(serverGossiper[name]).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
-	return serverGossiper[name].GetLatestMessages()
+	return targetGossiper.GetLatestMessages()
 }
 func getGossiperPrivateMessages(name string) *map[string][]data.PrivateMessage {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
-	return serverGossiper[name].GetPrivateMessages()
+	return targetGossiper.GetPrivateMessages()
 }
 
 func getGossiperPeers(name string) *[]string {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
-	return serverGossiper[name].GetPeerArray()
+	return targetGossiper.GetPeerArray()
 }
 
 func getStatusResponse(name string) *StatusResponse {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return nil
 	}
 	return &StatusResponse{
-		Name:    serverGossiper[name].Name,
-		Address: serverGossiper[name].Address.String(),
+		Name:    targetGossiper.Name,
+		Address: targetGossiper.Address.String(),
 	}
 }
 
 func deleteGossiper(name string) {
-	if len(serverGossiper) > 0 {
-		go serverGossiper[name].Kill()
-		delete(serverGossiper, name)
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
+		return
 	}
+	go targetGossiper.Kill()
+	gossiperPool.deleteGossiper(targetGossiper.Name)
 }
 
 func addPeer(name, peer string) bool {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return false
 	}
-	serverGossiper[name].AddPeer(peer)
+	targetGossiper.AddAndNotifyPeer(peer)
 	return true
 }
 
 func sendMessage(name, msg string) bool {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return false
 	}
 	newMsg := &data.Message{
 		Text: msg,
 	}
-	serverGossiper[name].HandleClientMessage(newMsg)
+	targetGossiper.HandleClientMessage(newMsg)
 	return true
 }
 
 func sendSearchMessage(name, keyboards string) bool {
-	if serverGossiper[name] == nil {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return false
 	}
 	newMsg := &data.Message{
 		Keywords: strings.Split(keyboards, ","),
 		Budget:   uint64(2),
 	}
-	serverGossiper[name].HandleClientMessage(newMsg)
+	targetGossiper.HandleClientMessage(newMsg)
 	return true
 }
 
 func sendPrivateMessage(name, destination, msg string) bool {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return false
 	}
 	newMsg := &data.Message{
 		Text:        msg,
 		Destination: destination,
 	}
-	serverGossiper[name].HandleClientMessage(newMsg)
+	targetGossiper.HandleClientMessage(newMsg)
 	return true
 }
 func sendFileRequest(name, destination, fileName, hash string) bool {
-	if reflect.ValueOf(serverGossiper).IsNil() {
+	targetGossiper, found := gossiperPool.getGossiper(name)
+	if !found {
 		return false
 	}
 	newMsg := &data.Message{
@@ -161,6 +218,6 @@ func sendFileRequest(name, destination, fileName, hash string) bool {
 		FileName:    fileName,
 		RequestHash: hash,
 	}
-	serverGossiper[name].HandleClientMessage(newMsg)
+	targetGossiper.HandleClientMessage(newMsg)
 	return true
 }

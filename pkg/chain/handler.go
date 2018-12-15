@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -28,26 +27,26 @@ type ChainHandler struct {
 	gossiperAddres string
 	stopped        bool
 	connection     *handler.ConnectionHandler
-	peers          *utils.PeerAddresses
-	store          *file.Store
+	Peers          *utils.PeerAddresses
+	fileStore      *file.Store
 	mux            sync.Mutex
 	timer          *time.Timer
 	quitChannel    chan bool
-	BundleChannel  chan *data.Bundle
-	BlockChannel   chan *data.BlockPublish
+	BundleChannel  chan *data.TransactionBundle
+	BlockChannel   chan *data.BlockBundle
 }
 
 // NewChainHandler function
-func NewChainHandler(address string, peerConection *handler.ConnectionHandler, peers *utils.PeerAddresses) *ChainHandler {
+func NewChainHandler(address string, peerConection *handler.ConnectionHandler, store *file.Store, peers *utils.PeerAddresses) *ChainHandler {
 	return &ChainHandler{
 		blockchain:    NewBlockChain(),
 		stopped:       false,
 		connection:    peerConection,
-		peers:         peers,
+		Peers:         peers,
 		timer:         &time.Timer{},
-		BundleChannel: make(chan *data.Bundle),
-		BlockChannel:  make(chan *data.BlockPublish),
-		store:         file.NewStore(),
+		BundleChannel: make(chan *data.TransactionBundle),
+		BlockChannel:  make(chan *data.BlockBundle),
+		fileStore:     store,
 	}
 }
 
@@ -66,11 +65,11 @@ func (handler *ChainHandler) getTimer() *time.Timer {
 	return handler.timer
 }
 
-// GetFileStore func
-func (handler *ChainHandler) GetFileStore() *file.Store {
+// GetStore func
+func (handler *ChainHandler) GetStore() *file.Store {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
-	return handler.store
+	return handler.fileStore
 }
 
 // Start handler
@@ -83,32 +82,34 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 				transaction := (*bundle).Tx
 				file := transaction.File
 				if bundle.Blob != nil {
-					handler.getStore().IndexBlob(bundle.Blob)
+					handler.GetStore().IndexBlob(*bundle.Blob)
 				}
-				fmt.Println(file)
+				// fmt.Println(file)
 				fileHash := file.GetMetaHash()
 				logger.Logf("Received transaction - %v", fileHash.String())
 
-				if !handler.store.FileExists(fileHash.String()) && !handler.blockchain.isFileInTransactionPool(&file) {
+				if !handler.fileStore.FileExists(fileHash.String()) && !handler.blockchain.isFileInTransactionPool(&file) {
 					transaction.HopLimit--
-					handler.getStore().IndexFile(&transaction.File)
+					go handler.GetStore().IndexFile(file)
 					handler.addTransaction(transaction)
 					if transaction.HopLimit > 0 {
-						handler.publishTX(file, transaction.HopLimit)
+						handler.publishTX(file, transaction.HopLimit, bundle.Origin)
 					}
 				} else {
-					logger.Logf("Transaction for %v already indexed", transaction.File.Name)
+					logger.Logf("Transaction for %v already indexed", file.Name)
 				}
 			case minedBlock := <-handler.blockchain.MinedBlocks:
-				handler.publishBlock(minedBlock, uint32(20))
+				handler.publishBlock(minedBlock, uint32(20), handler.gossiperAddres)
 
-			case blockMsg := <-handler.BlockChannel:
-				logger.Logf("Received block - %v", blockMsg.Block.String())
+			case blockBundle := <-handler.BlockChannel:
+				blockMsg := blockBundle.BlockPublish
+				block := blockMsg.Block
+				logger.Logf("Received block - %v", block.String())
 				blockMsg.HopLimit--
-				if handler.blockchain.addBlock(&blockMsg.Block) {
+				if handler.blockchain.addBlock(&block) {
 					handler.indexTransactionsInBlock(&blockMsg.Block)
 					if blockMsg.HopLimit > 0 {
-						handler.publishBlock(&blockMsg.Block, blockMsg.HopLimit)
+						handler.publishBlock(&blockMsg.Block, blockMsg.HopLimit, blockBundle.Origin)
 					}
 				}
 			case <-handler.quitChannel:
@@ -126,22 +127,14 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 
 func (handler *ChainHandler) indexTransactionsInBlock(block *data.Block) {
 	for _, tx := range block.Transactions {
-		handler.getStore().IndexFile(&tx.File)
+		handler.GetStore().IndexFile(tx.File)
 	}
 }
-func (handler *ChainHandler) getStore() *file.Store {
-	handler.mux.Lock()
-	defer handler.mux.Unlock()
-	return handler.store
-}
+
 func (handler *ChainHandler) addTransaction(tx *data.TxPublish) {
 	handler.mux.Lock()
 	handler.blockchain.addTransaction(tx)
 	handler.mux.Unlock()
-}
-
-func (handler *ChainHandler) UpdatePeers(peers *utils.PeerAddresses) {
-	handler.peers = peers
 }
 
 // Stop func
@@ -156,17 +149,17 @@ func (handler *ChainHandler) Stop() {
 	logger.Log("Data Handler already stopped....")
 }
 
-func (handler *ChainHandler) publishTX(file file.File, hops uint32) {
-	fmt.Println(file)
+func (handler *ChainHandler) publishTX(file file.File, hops uint32, origin string) {
+	// fmt.Println(file)
 	msg := data.NewTXPublish(file, hops)
-	fmt.Println(msg.File)
+	// fmt.Println(msg.File)
 	packet := &data.GossipPacket{TxPublish: msg}
-	handler.connection.BroadcastPacket(handler.peers, packet, handler.gossiperAddres)
+	handler.connection.BroadcastPacket(handler.Peers, packet, origin)
 }
 
-func (handler *ChainHandler) publishBlock(block *data.Block, hops uint32) {
+func (handler *ChainHandler) publishBlock(block *data.Block, hops uint32, origin string) {
 	msg := data.NewBlockPublish(*block, hops)
 	packet := &data.GossipPacket{BlockPublish: msg}
-	logger.Logf("%v", handler.peers.GetAdresses())
-	handler.connection.BroadcastPacket(handler.peers, packet, handler.gossiperAddres)
+	logger.Logf("%v", handler.Peers.GetAdresses())
+	handler.connection.BroadcastPacket(handler.Peers, packet, origin)
 }

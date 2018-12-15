@@ -14,10 +14,17 @@ type TxPublish struct {
 	HopLimit uint32
 }
 
-// Bundle struct
-type Bundle struct {
-	Tx   *TxPublish
-	Blob *file.Blob
+// TransactionBundle struct
+type TransactionBundle struct {
+	Tx     *TxPublish
+	Blob   *file.Blob
+	Origin string
+}
+
+// BlockBundle struct
+type BlockBundle struct {
+	BlockPublish *BlockPublish
+	Origin       string
 }
 
 // BlockPublish struct

@@ -305,8 +305,8 @@ func sendError(w *http.ResponseWriter, msg error) {
 	(*w).WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(*w, "There was an error processing the request: %v\n", msg.Error())
 	fmt.Printf("There was an error processing the request: %v\n", msg.Error())
-
 }
+
 func readBody(w *http.ResponseWriter, r *http.Request) *map[string]interface{} {
 	var params map[string]interface{}
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))

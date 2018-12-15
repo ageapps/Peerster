@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -212,7 +211,7 @@ func (handler *SearchHandler) MatchesResults(results []*data.SearchResult) bool 
 				break
 			}
 		}
-		fmt.Printf("Matched %v/%v - %v\n", fileName, matchedKeyword, handler.Keywords)
+		logger.Logf("Matched %v/%v - %v\n", fileName, matchedKeyword, handler.Keywords)
 		matchFile = matchFile && matchedKeyword
 	}
 	return matchFile

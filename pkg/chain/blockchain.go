@@ -25,7 +25,8 @@ const (
 // BlockChain struct
 type BlockChain struct {
 	minig          bool
-	chain          []data.Block
+	CanonicalChain []data.Block
+	SideChains     [][]data.Block
 	currentBlock   data.Block
 	prevHash       [32]byte
 	tansactionPool map[string]*data.TxPublish
@@ -39,7 +40,7 @@ func NewBlockChain() *BlockChain {
 	chain := []data.Block{}
 
 	return &BlockChain{
-		chain:          chain,
+		CanonicalChain: chain,
 		minig:          false,
 		prevHash:       [32]byte{},
 		tansactionPool: make(map[string]*data.TxPublish),
@@ -95,6 +96,9 @@ func (bc *BlockChain) addTransaction(transaction *data.TxPublish) {
 }
 
 func (bc *BlockChain) addBlock(block *data.Block) bool {
+	if !checkZeros(block.Nonce) {
+		return false
+	}
 	blockType := bc.getBlockType(block)
 	logger.Logf("Block received of type %v", blockType)
 	switch blockType {
@@ -169,7 +173,6 @@ func (bc *BlockChain) checkCurrentBlock(newBlock *data.Block) bool {
 	// Look in current block and non coincident tx, add to tx pool
 	for _, newTx := range newBlock.Transactions {
 		for _, tx := range bc.getCurrentBlock().Transactions {
-			fmt.Println(tx.File)
 			hash := tx.File.GetMetaHash()
 			if newHash := newTx.File.GetMetaHash(); newHash.String() == hash.String() {
 				return true
@@ -255,7 +258,7 @@ func (bc *BlockChain) getCurrentBlock() data.Block {
 func (bc *BlockChain) getChain() []data.Block {
 	bc.mux.Lock()
 	defer bc.mux.Unlock()
-	return bc.chain
+	return bc.CanonicalChain
 }
 func (bc *BlockChain) getPrevHash() [32]byte {
 	bc.mux.Lock()
@@ -285,17 +288,18 @@ func (bc *BlockChain) addToBlockPool(block *data.Block) {
 
 func (bc *BlockChain) addToBlockChain(block data.Block) {
 	bc.mux.Lock()
-	bc.chain = append(bc.chain, block)
+	bc.CanonicalChain = append(bc.CanonicalChain, block)
 	bc.mux.Unlock()
 	bc.logChain()
 }
 
 func (bc *BlockChain) logChain() {
-	str := ""
-	for _, block := range bc.chain {
+	str := " "
+	for _, block := range bc.CanonicalChain {
 		str += block.String()
 		str += ":"
 		str += hex.EncodeToString(block.PrevHash[:])
+		str += ":"
 		for index := 0; index < len(block.Transactions); index++ {
 			str += block.Transactions[index].File.Name
 			if index < len(block.Transactions)-1 {
@@ -303,4 +307,5 @@ func (bc *BlockChain) logChain() {
 			}
 		}
 	}
+	fmt.Println("CHAIN" + str)
 }

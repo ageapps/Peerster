@@ -22,6 +22,12 @@ type PeerAddresses struct {
 	mux       sync.Mutex
 }
 
+func EmptyAdresses() *PeerAddresses {
+	return &PeerAddresses{
+		Addresses: []PeerAddress{},
+	}
+}
+
 // GetPeerAddress returns a PeerAdress
 // from an string
 func GetPeerAddress(value string) (PeerAddress, error) {
@@ -66,10 +72,17 @@ func (peers *PeerAddresses) GetAdresses() []PeerAddress {
 	return peers.Addresses
 }
 
-func (peers *PeerAddresses) appendPeers(address PeerAddress) {
+func (peers *PeerAddresses) appendPeer(address *PeerAddress) {
 	peers.mux.Lock()
 	defer peers.mux.Unlock()
-	peers.Addresses = append(peers.Addresses, address)
+	peers.Addresses = append(peers.Addresses, *address)
+}
+
+// AppendPeers func
+func (peers *PeerAddresses) AppendPeers(addresses *PeerAddresses) {
+	for _, address := range addresses.GetAdresses() {
+		peers.appendPeer(&address)
+	}
 }
 
 // Set PeerAddreses from string
@@ -81,7 +94,7 @@ func (peers *PeerAddresses) Set(value string) error {
 		if err := address.Set(item); err != nil {
 			return err
 		} else if !strings.Contains(peers.String(), item) {
-			peers.appendPeers(address)
+			peers.appendPeer(&address)
 		}
 	}
 	return nil

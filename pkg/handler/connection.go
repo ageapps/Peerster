@@ -115,7 +115,7 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 		}
 		packetBytes, err2 := protobuf.Encode(packet)
 		if err2 != nil {
-			logger.Logf("Warning Encoding: %v", err2)
+			//logger.Logf("Warning Encoding: %v", err2)
 		}
 		if _, err3 := handler.conn.WriteToUDP(packetBytes, udpaddr); err3 != nil {
 			logger.Logf("Error Sending Packet %v", err3)
@@ -138,7 +138,7 @@ func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string,
 	}
 	err2 := protobuf.Decode(buffer, packet)
 	if err2 != nil {
-		logger.Logf("Warning Decoding: %v", err2)
+		// logger.Logf("Warning Decoding: %v", err2)
 	}
 	return address.String(), nil
 }

@@ -29,16 +29,19 @@ func (gossiper *Gossiper) Kill() {
 	gossiper = nil
 }
 
-// SetPeers peers
-func (gossiper *Gossiper) SetPeers(newPeers *utils.PeerAddresses) {
+// AddPeers peers
+func (gossiper *Gossiper) AddPeers(newPeers *utils.PeerAddresses) {
 	gossiper.mux.Lock()
-	gossiper.peers = newPeers
+	gossiper.peers.AppendPeers(newPeers)
 	gossiper.mux.Unlock()
 }
 
-// AddPeer func
-func (gossiper *Gossiper) AddPeer(newPeer string) {
-	gossiper.peers.Set(newPeer)
+// AddAndNotifyPeer func
+func (gossiper *Gossiper) AddAndNotifyPeer(newPeer string) {
+	err := gossiper.peers.Set(newPeer)
+	if err != nil {
+		log.Fatal(err)
+	}
 	gossiper.sendStatusMessage(newPeer, "")
 }
 
@@ -82,23 +85,29 @@ func (gossiper *Gossiper) Stop() {
 	gossiper.mux.Unlock()
 }
 
-// GetFiles map <metahash>:name
-func (gossiper *Gossiper) GetFiles() map[string]string {
-	fileMap := make(map[string]string)
+// GetFileStore map <metahash>:name
+func (gossiper *Gossiper) GetFileStore() *file.Store {
 	gossiper.mux.Lock()
-	store := gossiper.chainHandler.GetFileStore()
-	files := store.GetFiles()
-	for k, v := range files {
-		fileMap[k] = v.Name
-	}
-	gossiper.mux.Unlock()
-	return fileMap
+	defer gossiper.mux.Unlock()
+	return gossiper.fileStore
 }
 
-// PublishBundle func
-func (gossiper *Gossiper) PublishBundle(file *file.File, blob *file.Blob, hops uint32) {
-	msg := data.NewTXPublish(*file, hops)
-	gossiper.chainHandler.BundleChannel <- &data.Bundle{Tx: msg, Blob: blob}
+// GetFiles map <metahash>:file
+func (gossiper *Gossiper) GetFiles() map[string]file.File {
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+	return gossiper.fileStore.GetFiles()
+}
+
+// IndexAndPublishBundle func
+func (gossiper *Gossiper) IndexAndPublishBundle(file *file.File, blob *file.Blob, hops uint32) {
+	existed := gossiper.GetFileStore().IndexBlob(*blob)
+	if !existed {
+		gossiper.GetFileStore().IndexFile(*file)
+		msg := data.NewTXPublish(*file, hops)
+		// gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
+		gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, Origin: gossiper.Address.String()}
+	}
 }
 
 // GetChainHandler func
@@ -135,5 +144,9 @@ func SaveLocalFile(name string) (*file.Blob, *file.File) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return blob, &file.File{blob.GetName(), blob.GetBlobSize(), blob.GetMetaHash()}
+	return blob, &file.File{
+		Name:         blob.GetName(),
+		Size:         blob.GetBlobSize(),
+		MetafileHash: blob.GetMetaHash(),
+	}
 }

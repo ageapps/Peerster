@@ -5,9 +5,29 @@ import (
 
 	"github.com/ageapps/Peerster/pkg/logger"
 	"github.com/ageapps/Peerster/pkg/utils"
-
-	"github.com/ageapps/Peerster/pkg/file"
 )
+
+type Person struct {
+	Name string
+	age  int
+}
+
+type House struct {
+	Person *Person
+	street string
+}
+
+type Family struct {
+	Person   *Person
+	children int
+}
+
+func NewFamily(person *Person, child int) *Family {
+	return &Family{
+		Person:   person,
+		children: child,
+	}
+}
 
 func testHashValue() {
 	var pepe utils.HashValue
@@ -16,13 +36,27 @@ func testHashValue() {
 }
 func testFiles() {
 	logger.CreateLogger("file", "0.0.0.0", true)
-	f, err := file.NewFileFromLocalSync("test.png")
-	err = f.Reconstruct()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// f, err := file.NewFileFromLocalSync("test.png")
+	// err = f.Reconstruct()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 }
 
 func main() {
+	house := &House{
+		Person: &Person{Name: "adri", age: 20},
+		street: "calle",
+	}
+
+	family := NewFamily(house.Person, 2)
+
+	fmt.Println(*house.Person)
+
+	fmt.Println(*family.Person)
+
+	house.Person.Name = "Pepe"
+	fmt.Println(*house.Person)
+	fmt.Println(*family.Person)
 
 }

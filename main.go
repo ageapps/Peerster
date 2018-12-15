@@ -19,12 +19,12 @@ import (
 
 func main() {
 
-	var peers = utils.PeerAddresses{}
+	var peers = utils.EmptyAdresses()
 	var gossipAddr = utils.PeerAddress{IP: net.ParseIP("127.0.0.1"), Port: 5000}
 	var UIPort = flag.Int("UIPort", 10000, "Define the port to which the client will connect")
 	var rtimer = flag.Int("rtimer", 3, "Route rumors sending period in seconds, 0 to disable")
 	var name = flag.String("name", "node", "Define the name of the gossiper")
-	flag.Var(&peers, "peers", "Define the addreses of the rest of the peers to connect to separeted by a colon")
+	flag.Var(peers, "peers", "Define the addreses of the rest of the peers to connect to separeted by a colon")
 	flag.Var(&gossipAddr, "gossipAddr", "Define the ip and port to connect and send gossip messages")
 	var simple = flag.Bool("simple", false, "True if using Simple messaging")
 
@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go gossiper.SetPeers(&peers)
+	go gossiper.AddPeers(peers)
 	go gossiper.ListenToClients(*UIPort)
 	if err := gossiper.ListenToPeers(); err != nil {
 		log.Fatal(err)

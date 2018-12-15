@@ -215,10 +215,10 @@ func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address s
 	if !gossiper.duplicateProcess(name, PROCESS_SEARCH) {
 		var results []*data.SearchResult
 		for _, keyword := range msg.Keywords {
-			for _, gossiperFile := range gossiper.GetChainHandler().GetFileStore().GetFiles() {
+			for _, gossiperFile := range gossiper.GetFileStore().GetFiles() {
 				if _, ok := file.MatchKeyword(keyword); ok {
 					logger.Logf("Match found for %v in %v requested by %v", keyword, gossiperFile.Name, msg.Origin)
-					if blob, found := gossiper.GetChainHandler().GetFileStore().GetBlobFromFile(gossiperFile); found {
+					if blob, found := gossiper.GetFileStore().GetBlobFromFile(gossiperFile); found {
 						results = append(results, data.NewSearchResult(gossiperFile.Name, gossiperFile.GetMetaHash(), blob.GetChunkMap(), blob.GetChunkCount()))
 					} else {
 						logger.Logf("Coundn´t find the corresponding blob to file %v", gossiperFile.Name)
@@ -243,10 +243,8 @@ func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address s
 }
 
 func (gossiper *Gossiper) handleTXMessage(msg *data.TxPublish, address string) {
-	gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
-	gossiper.chainHandler.BundleChannel <- &data.Bundle{Tx: msg}
+	gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, Origin: address}
 }
 func (gossiper *Gossiper) handleBlockMessage(msg *data.BlockPublish, address string) {
-	gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
-	gossiper.chainHandler.BlockChannel <- msg
+	gossiper.chainHandler.BlockChannel <- &data.BlockBundle{BlockPublish: msg, Origin: address}
 }
