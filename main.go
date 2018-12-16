@@ -38,7 +38,10 @@ func main() {
 	}
 	go gossiper.AddPeers(peers)
 	go gossiper.ListenToClients(*UIPort)
-	if err := gossiper.ListenToPeers(); err != nil {
-		log.Fatal(err)
-	}
+	go func() {
+		if err := gossiper.ListenToPeers(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	gossiper.StartBlockChain()
 }

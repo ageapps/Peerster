@@ -77,6 +77,13 @@ func NewGossiper(addressStr, name string, simple bool, rtimer int) (*Gossiper, e
 	gossiper.chainHandler.Start(func() {
 		logger.Log("Chain handler stopped succesfully")
 	})
+	// var wg sync.WaitGroup
+
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+
+	// }()
 
 	if !simple {
 		if rtimer > 0 {
@@ -101,6 +108,10 @@ func (gossiper *Gossiper) ListenToPeers() error {
 		gossiper.handlePeerPacket(&pkt.Packet, pkt.Address)
 	}
 	return nil
+}
+
+func (gossiper *Gossiper) StartBlockChain() {
+	gossiper.chainHandler.StartBlockchain()
 }
 
 // ListenToClients function

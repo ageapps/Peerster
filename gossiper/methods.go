@@ -24,9 +24,13 @@ func (gossiper *Gossiper) Kill() {
 	for _, process := range gossiper.getDataProcesses() {
 		process.Stop()
 	}
+	for _, process := range gossiper.getSeachProcesses() {
+		process.Stop()
+	}
+	gossiper.GetChainHandler().Stop()
 	gossiper.peerConection.Close()
 	gossiper.Stop()
-	gossiper = nil
+	// gossiper = nil
 }
 
 // AddPeers peers
@@ -106,7 +110,7 @@ func (gossiper *Gossiper) IndexAndPublishBundle(file *file.File, blob *file.Blob
 		gossiper.GetFileStore().IndexFile(*file)
 		msg := data.NewTXPublish(*file, hops)
 		// gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
-		gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, Origin: gossiper.Address.String()}
+		gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, LocalFile: true, Origin: gossiper.Address.String()}
 	}
 }
 

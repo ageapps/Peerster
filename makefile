@@ -67,3 +67,4 @@ lint:
 
 kill:
 	kill $(lsof -t -i :5000)
+	kill $(lsof -nP -i4TCP:8080 | grep LISTEN)

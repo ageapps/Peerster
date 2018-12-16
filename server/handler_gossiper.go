@@ -84,6 +84,9 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 				log.Fatal(err)
 			}
 		}()
+		go func() {
+			targetGossiper.StartBlockChain()
+		}()
 		gossiperPool.addGossiper(targetGossiper)
 	}
 	return targetGossiper.Name

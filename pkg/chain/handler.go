@@ -44,8 +44,9 @@ func NewChainHandler(address string, peerConection *handler.ConnectionHandler, s
 		connection:    peerConection,
 		Peers:         peers,
 		timer:         &time.Timer{},
-		BundleChannel: make(chan *data.TransactionBundle),
-		BlockChannel:  make(chan *data.BlockBundle),
+		quitChannel:   make(chan bool),
+		BundleChannel: make(chan *data.TransactionBundle, 5),
+		BlockChannel:  make(chan *data.BlockBundle, 5),
 		fileStore:     store,
 	}
 }
@@ -75,20 +76,18 @@ func (handler *ChainHandler) GetStore() *file.Store {
 // Start handler
 func (handler *ChainHandler) Start(onStopHandler func()) {
 	go handler.resetTimer()
+
 	go func() {
 		for {
 			select {
 			case bundle := <-handler.BundleChannel:
 				transaction := (*bundle).Tx
 				file := transaction.File
-				if bundle.Blob != nil {
-					handler.GetStore().IndexBlob(*bundle.Blob)
-				}
 				// fmt.Println(file)
 				fileHash := file.GetMetaHash()
 				logger.Logf("Received transaction - %v", fileHash.String())
-
-				if !handler.fileStore.FileExists(fileHash.String()) && !handler.blockchain.isFileInTransactionPool(&file) {
+				fileExists := !bundle.LocalFile && handler.fileStore.FileExists(fileHash.String())
+				if !fileExists && !handler.blockchain.IsTransactionSaved(transaction) {
 					transaction.HopLimit--
 					go handler.GetStore().IndexFile(file)
 					handler.addTransaction(transaction)
@@ -100,29 +99,53 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 				}
 			case minedBlock := <-handler.blockchain.MinedBlocks:
 				handler.publishBlock(minedBlock, uint32(20), handler.gossiperAddres)
+				logger.Log("XXXXXXXXXXXXXXXs")
 
 			case blockBundle := <-handler.BlockChannel:
 				blockMsg := blockBundle.BlockPublish
 				block := blockMsg.Block
 				logger.Logf("Received block - %v", block.String())
 				blockMsg.HopLimit--
-				if handler.blockchain.addBlock(&block) {
+				if handler.blockchain.CanAddBlock(&block) {
+					handler.addBlock(&block)
 					handler.indexTransactionsInBlock(&blockMsg.Block)
 					if blockMsg.HopLimit > 0 {
 						handler.publishBlock(&blockMsg.Block, blockMsg.HopLimit, blockBundle.Origin)
 					}
 				}
+				logger.Log("YYYYYYYYYY")
 			case <-handler.quitChannel:
 				logger.Log("Finishing Blockchain handler")
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
+				handler.blockchain.Stop()
+				close(handler.BundleChannel)
+				close(handler.BlockChannel)
+				close(handler.quitChannel)
 				onStopHandler()
 				return
 			}
 		}
 	}()
+	logger.Log("ZZZZZZZZZZZZZZ")
+}
 
+func (handler *ChainHandler) StartBlockchain() {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handler.blockchain.Start(func() {
+			logger.Log("Stopped Blockchain succesfully")
+		})
+	}()
+	wg.Wait()
+	logger.Log("WWWWWWWWWWWW")
+	logger.Log("WWWWWWWWWWWW")
+	logger.Log("WWWWWWWWWWWW")
+	logger.Log("WWWWWWWWWWWW")
 }
 
 func (handler *ChainHandler) indexTransactionsInBlock(block *data.Block) {
@@ -133,7 +156,12 @@ func (handler *ChainHandler) indexTransactionsInBlock(block *data.Block) {
 
 func (handler *ChainHandler) addTransaction(tx *data.TxPublish) {
 	handler.mux.Lock()
-	handler.blockchain.addTransaction(tx)
+	handler.blockchain.TxChannel <- tx
+	handler.mux.Unlock()
+}
+func (handler *ChainHandler) addBlock(bl *data.Block) {
+	handler.mux.Lock()
+	handler.blockchain.BlockChannel <- bl
 	handler.mux.Unlock()
 }
 
@@ -142,8 +170,6 @@ func (handler *ChainHandler) Stop() {
 	logger.Log("Stopping data handler")
 	if !handler.stopped {
 		handler.stopped = true
-		close(handler.BundleChannel)
-		close(handler.BlockChannel)
 		return
 	}
 	logger.Log("Data Handler already stopped....")
@@ -160,6 +186,6 @@ func (handler *ChainHandler) publishTX(file file.File, hops uint32, origin strin
 func (handler *ChainHandler) publishBlock(block *data.Block, hops uint32, origin string) {
 	msg := data.NewBlockPublish(*block, hops)
 	packet := &data.GossipPacket{BlockPublish: msg}
-	logger.Logf("%v", handler.Peers.GetAdresses())
+	// logger.Logf("%v", handler.Peers.GetAdresses())
 	handler.connection.BroadcastPacket(handler.Peers, packet, origin)
 }

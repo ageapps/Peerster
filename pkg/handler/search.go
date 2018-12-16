@@ -19,7 +19,7 @@ const MaxBudget = 32
 // DefaultBudget used
 const DefaultBudget = uint64(2)
 
-// DefaultMatchThreshold needed to stop searching
+// DefaultMatchThreshold needed to Stop searching
 const DefaultMatchThreshold = 2
 
 // SearchHandler is a handler that will be in
@@ -94,20 +94,20 @@ func (handler *SearchHandler) Start(onFileReceviedHandler func(*data.FileResult)
 				}
 				nrMatches := len(handler.matchedDestinations)
 				if nrMatches >= handler.matchThreshold {
-					handler.stop()
+					handler.Stop()
 				}
 			case <-handler.timer.C:
 				logger.Logf("TIMEOUT - %v matches", len(handler.matchedDestinations))
 				if handler.waiting {
 					logger.Logf("Handler waiting for matches %v", handler.Keywords)
 				} else {
-					if handler.budget >= MaxBudget {
+					if handler.budget > MaxBudget {
 						handler.waiting = true
 						// create a timeout for waiting for answers
 						timer2 := time.NewTimer(5 * time.Second)
 						go func() {
 							<-timer2.C
-							handler.stop()
+							handler.Stop()
 						}()
 					} else {
 						handler.sendRequest()
@@ -147,7 +147,7 @@ func (handler *SearchHandler) loadDestinationBudgets() {
 	logger.Logf("Loading destination budgets %v to %v peers", handler.budget, nrPeers)
 	if nrPeers <= 0 {
 		logger.Log("No peers to send search request")
-		handler.stop()
+		handler.Stop()
 		return
 	}
 	peersChosen := nrPeers
@@ -194,7 +194,7 @@ func (handler *SearchHandler) sendRequest() {
 			}
 		}
 	}
-	if handler.budget < MaxBudget {
+	if handler.budget <= MaxBudget {
 		handler.budget = handler.budget * 2
 	}
 }
@@ -217,8 +217,8 @@ func (handler *SearchHandler) MatchesResults(results []*data.SearchResult) bool 
 	return matchFile
 }
 
-// stop search handler
-func (handler *SearchHandler) stop() {
+// Stop search handler
+func (handler *SearchHandler) Stop() {
 	logger.Logf("Stopping search handler - " + handler.Name)
 	if !handler.stopped {
 		handler.stopped = true

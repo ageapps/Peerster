@@ -1,28 +1,33 @@
 package chain
 
 import (
-	"encoding/hex"
-
 	"github.com/ageapps/Peerster/pkg/data"
 )
 
-// Chain
-
+// Chain struct
 type Chain struct {
 	Blocks []*data.Block
 }
 
-func (chain *Chain) addBlock(block *data.Block) {
+// NewEmptyChain func
+func NewEmptyChain() Chain {
+	return Chain{Blocks: []*data.Block{}}
+}
+func (chain *Chain) appendBlock(block *data.Block) {
 	chain.Blocks = append(chain.Blocks, block)
 }
+func (chain *Chain) size() int {
+	return len(chain.Blocks)
+}
 
-func (chain *Chain) isConsecutive(newBlock *data.Block) bool {
+func (chain *Chain) isNextBlockInChain(newBlock *data.Block) bool {
 	if len(chain.Blocks) <= 0 {
-		return false
-	}
-	hash := chain.Blocks[len(chain.Blocks)-1].Nonce
-	if hex.EncodeToString(newBlock.PrevHash[:]) == hex.EncodeToString(hash[:]) {
 		return true
 	}
-	return false
+	lastBlock := chain.Blocks[len(chain.Blocks)-1]
+	return lastBlock.IsNextBlock(newBlock)
+}
+
+func (chain *Chain) getSubchain(start, end int) *Chain {
+	return &Chain{Blocks: chain.Blocks[start:end]}
 }

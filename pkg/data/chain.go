@@ -16,9 +16,9 @@ type TxPublish struct {
 
 // TransactionBundle struct
 type TransactionBundle struct {
-	Tx     *TxPublish
-	Blob   *file.Blob
-	Origin string
+	Tx        *TxPublish
+	LocalFile bool
+	Origin    string
 }
 
 // BlockBundle struct
@@ -56,6 +56,25 @@ func (block *Block) AppendTransaction(tx TxPublish) {
 // AppendTransaction func
 func (block *Block) String() string {
 	return hex.EncodeToString(block.Nonce[:])
+}
+
+// PrintPrev func
+func (block *Block) PrintPrev() string {
+	return hex.EncodeToString(block.PrevHash[:])
+}
+
+func (block *Block) IsNextBlock(newBlock *Block) bool {
+
+	if hex.EncodeToString(newBlock.PrevHash[:]) == hex.EncodeToString(block.Nonce[:]) {
+		return true
+	}
+	return false
+}
+
+// AppendTransaction func
+func (tx *TxPublish) String() string {
+	hash := tx.File.GetMetaHash()
+	return hash.String()
 }
 
 // NewTXPublish func

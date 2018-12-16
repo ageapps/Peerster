@@ -85,7 +85,9 @@ func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, 
 			logger.Log("Error reading packet")
 			break
 		}
-		messages <- msg
+		go func() {
+			messages <- msg
+		}()
 	}
 	close(messages)
 }
