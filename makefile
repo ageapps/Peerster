@@ -14,6 +14,7 @@ clean:
 	go clean
 	go clean ./client/
 	go clean ./server/
+	rm *.out
 
 run:
 	@sum=`expr $(n) - 1`; echo $$sum; go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)  -peers=127.0.0.1:500$$sum
@@ -57,6 +58,9 @@ test1:
 
 test2:
 	sh test/test_2_ring.sh
+
+test3:
+	sh test/test_3.sh
 
 cchunks:
 	rm ./._Chunks/*

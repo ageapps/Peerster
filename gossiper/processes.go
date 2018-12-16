@@ -21,48 +21,61 @@ const (
 )
 
 func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType) {
-	gossiper.mux.Lock()
-	name := ""
-	switch ptype {
-	case PROCESS_MONGUER:
-		regProcess := process.(*handler.MongerHandler)
-		name = regProcess.Name
-		gossiper.monguerPocesses[name] = regProcess
+	go func() {
 
-	case PROCESS_DATA:
-		regProcess := process.(*handler.FileHandler)
-		name = regProcess.Name
-		gossiper.fileProcesses[name] = regProcess
+		name := ""
+		switch ptype {
+		case PROCESS_MONGUER:
+			regProcess := process.(*handler.MongerHandler)
+			name = regProcess.Name
+			gossiper.mux.Lock()
+			gossiper.monguerPocesses[name] = regProcess
+			gossiper.mux.Unlock()
 
-	case PROCESS_SEARCH:
-		regProcess := process.(*handler.SearchHandler)
-		name = regProcess.Name
-		gossiper.searchProcesses[name] = regProcess
-	}
-	gossiper.mux.Unlock()
-	logger.Logf("%v - Registering %v - %v", gossiper.Name, ptype, name)
+		case PROCESS_DATA:
+			regProcess := process.(*handler.FileHandler)
+			name = regProcess.Name
+			gossiper.mux.Lock()
+			gossiper.fileProcesses[name] = regProcess
+			gossiper.mux.Unlock()
+
+		case PROCESS_SEARCH:
+			regProcess := process.(*handler.SearchHandler)
+			name = regProcess.Name
+			gossiper.mux.Lock()
+			gossiper.searchProcesses[name] = regProcess
+			gossiper.mux.Unlock()
+		}
+		logger.Logf("%v - Registering %v - %v", gossiper.Name, ptype, name)
+	}()
+
 }
 
 func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
-	gossiper.mux.Lock()
-	found := true
-	switch ptype {
-	case PROCESS_MONGUER:
-		_, found = gossiper.monguerPocesses[name]
-		gossiper.monguerPocesses[name] = nil
-		delete(gossiper.monguerPocesses, name)
-	case PROCESS_DATA:
-		_, found = gossiper.fileProcesses[name]
-		gossiper.fileProcesses[name] = nil
-		delete(gossiper.fileProcesses, name)
-
-	case PROCESS_SEARCH:
-		_, found = gossiper.searchProcesses[name]
-		gossiper.searchProcesses[name] = nil
-		delete(gossiper.searchProcesses, name)
-	}
-	gossiper.mux.Unlock()
-	logger.Logf("%v - Unregistering %v - %v found:%v", gossiper.Name, ptype, name, found)
+	go func() {
+		found := true
+		switch ptype {
+		case PROCESS_MONGUER:
+			_, found = gossiper.monguerPocesses[name]
+			gossiper.mux.Lock()
+			gossiper.monguerPocesses[name] = nil
+			delete(gossiper.monguerPocesses, name)
+			gossiper.mux.Unlock()
+		case PROCESS_DATA:
+			gossiper.mux.Lock()
+			_, found = gossiper.fileProcesses[name]
+			gossiper.fileProcesses[name] = nil
+			delete(gossiper.fileProcesses, name)
+			gossiper.mux.Unlock()
+		case PROCESS_SEARCH:
+			gossiper.mux.Lock()
+			_, found = gossiper.searchProcesses[name]
+			gossiper.searchProcesses[name] = nil
+			delete(gossiper.searchProcesses, name)
+			gossiper.mux.Unlock()
+		}
+		logger.Logf("%v - Unregistering %v - %v found:%v", gossiper.Name, ptype, name, found)
+	}()
 }
 
 func (gossiper *Gossiper) duplicateProcess(name string, ptype ProcessType) bool {
@@ -101,6 +114,9 @@ func (gossiper *Gossiper) getSeachProcesses() map[string]*handler.SearchHandler 
 
 func (gossiper *Gossiper) findMonguerProcess(originAddress string, routeMonguer bool) *handler.MongerHandler {
 	processes := gossiper.getMongerProcesses()
+	gossiper.mux.Lock()
+	defer gossiper.mux.Unlock()
+
 	for _, process := range processes {
 		if process.GetMonguerPeer() == originAddress && process.IsRouteMonguer() == routeMonguer {
 			return process

@@ -30,7 +30,7 @@ func main() {
 
 	flag.Parse()
 
-	logger.CreateLogger(*name, gossipAddr.String(), true)
+	logger.CreateLogger(*name, gossipAddr.String(), false)
 
 	var gossiper, err = gossiper.NewGossiper(gossipAddr.String(), *name, *simple, *rtimer)
 	if err != nil {
