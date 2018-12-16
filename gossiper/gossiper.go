@@ -189,14 +189,13 @@ func (gossiper *Gossiper) handleClientDirectMessage(msg *data.Message) {
 }
 
 func (gossiper *Gossiper) handlePeerPacket(packet *data.GossipPacket, originAddress string) {
-	// if originAddress != gossiper.Address.String() {
-	// 	gossiper.AddPeer(originAddress)
-	// }
-
-	err := gossiper.GetPeers().Set(originAddress)
-	if err != nil {
-		log.Fatal(err)
+	if originAddress != gossiper.Address.String() {
+		err := gossiper.GetPeers().Set(originAddress)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
 	packetType := packet.GetPacketType()
 	logger.Log("Received packet peer: " + packetType)
 	switch packetType {
@@ -248,9 +247,12 @@ func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64, 
 
 	gossiper.registerProcess(searchProcess, PROCESS_SEARCH)
 	searchProcess.Start(func(fileFound *data.FileResult) { // onFileReceived
-		if !gossiper.GetFileStore().FileExists(fileFound.MetafileHash.String()) {
+		if !gossiper.GetFileStore().BlobExists(fileFound.MetafileHash.String()) {
 			logger.LogFoundFile(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash.String(), fileFound.ChunkMap)
 			gossiper.launchDataProcess(fileFound.FileName, fileFound.Destination, fileFound.MetafileHash)
+		} else {
+			fmt.Println(gossiper.GetFileStore().GetFiles())
+			logger.Logf("%v - Blob result found locally - %v", gossiper.Name, fileFound.FileName)
 		}
 	}, func() { // onStopHandler
 		logger.LogSearchFinished()
@@ -259,12 +261,16 @@ func (gossiper *Gossiper) launchSearchProcess(keywords []string, budget uint64, 
 }
 
 func (gossiper *Gossiper) launchDataProcess(filename, destination string, metahash utils.HashValue) {
-	dataProcess := handler.NewDataHandler(buildDataProcessName(destination, filename), filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
-	gossiper.registerProcess(dataProcess, PROCESS_DATA)
-	dataProcess.Start(func() {
-		gossiper.IndexAndPublishBundle(dataProcess.GetFile(), dataProcess.GetBlob(), uint32(10))
-		gossiper.unregisterProcess(dataProcess.GetCurrentPeer(), PROCESS_DATA)
-	})
+	if !gossiper.GetFileStore().BlobExists(metahash.String()) {
+		dataProcess := handler.NewDataHandler(buildDataProcessName(destination, filename), filename, gossiper.Name, destination, metahash, gossiper.peerConection, gossiper.router)
+		gossiper.registerProcess(dataProcess, PROCESS_DATA)
+		dataProcess.Start(func() {
+			gossiper.IndexAndPublishBundle(dataProcess.GetFile(), dataProcess.GetBlob(), uint32(10))
+			gossiper.unregisterProcess(dataProcess.Name, PROCESS_DATA)
+		})
+	} else {
+		logger.Logf("Requested file found locally - %v", metahash.String())
+	}
 }
 
 func buildDataProcessName(peer, file string) string {

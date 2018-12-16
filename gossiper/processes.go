@@ -40,7 +40,7 @@ func (gossiper *Gossiper) registerProcess(process interface{}, ptype ProcessType
 		gossiper.searchProcesses[name] = regProcess
 	}
 	gossiper.mux.Unlock()
-	logger.Logf("Registering %v - %v", ptype, name)
+	logger.Logf("%v - Registering %v - %v", gossiper.Name, ptype, name)
 }
 
 func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
@@ -62,7 +62,7 @@ func (gossiper *Gossiper) unregisterProcess(name string, ptype ProcessType) {
 		delete(gossiper.searchProcesses, name)
 	}
 	gossiper.mux.Unlock()
-	logger.Logf("Unregistering %v - %v found:%v", ptype, name, found)
+	logger.Logf("%v - Unregistering %v - %v found:%v", gossiper.Name, ptype, name, found)
 }
 
 func (gossiper *Gossiper) duplicateProcess(name string, ptype ProcessType) bool {

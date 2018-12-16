@@ -96,21 +96,35 @@ func (gossiper *Gossiper) GetFileStore() *file.Store {
 	return gossiper.fileStore
 }
 
-// GetFiles map <metahash>:file
-func (gossiper *Gossiper) GetFiles() map[string]file.File {
-	gossiper.mux.Lock()
-	defer gossiper.mux.Unlock()
-	return gossiper.fileStore.GetFiles()
+// GetFilesStatus map <metahash>:file
+func (gossiper *Gossiper) GetFilesStatus() map[string]file.FileStatus {
+	status := make(map[string]file.FileStatus)
+	blobs := gossiper.fileStore.GetBlobs()
+	for hash, foundFile := range gossiper.fileStore.GetFiles() {
+		_, isBlobStored := blobs[hash]
+		status[hash] = file.FileStatus{
+			Name:         foundFile.Name,
+			Size:         foundFile.Size,
+			MetafileHash: foundFile.MetafileHash,
+			Blob:         isBlobStored,
+		}
+	}
+	return status
 }
 
 // IndexAndPublishBundle func
 func (gossiper *Gossiper) IndexAndPublishBundle(file *file.File, blob *file.Blob, hops uint32) {
+
 	existed := gossiper.GetFileStore().IndexBlob(*blob)
 	if !existed {
 		gossiper.GetFileStore().IndexFile(*file)
 		msg := data.NewTXPublish(*file, hops)
-		// gossiper.chainHandler.UpdatePeers(gossiper.GetPeers())
-		gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, LocalFile: true, Origin: gossiper.Address.String()}
+		logger.Logf("Emiting new file %v", file.Name)
+		go func() {
+			gossiper.chainHandler.BundleChannel <- &data.TransactionBundle{Tx: msg, LocalFile: true, Origin: gossiper.Address.String()}
+		}()
+	} else {
+		logger.Logf("File %v already exists", file.Name)
 	}
 }
 

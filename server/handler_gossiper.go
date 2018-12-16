@@ -101,7 +101,7 @@ func getGossiperRoutes(name string) *router.RoutingTable {
 	return targetGossiper.GetRoutes()
 }
 
-func indexFileInGossiper(name, file string) map[string]file.File {
+func indexFileInGossiper(name, file string) map[string]file.FileStatus {
 	targetGossiper, found := gossiperPool.getGossiper(name)
 	if !found {
 		return nil
@@ -110,15 +110,15 @@ func indexFileInGossiper(name, file string) map[string]file.File {
 	blob, localFile := gossiper.SaveLocalFile(file)
 	targetGossiper.IndexAndPublishBundle(localFile, blob, uint32(10))
 
-	return getGossiperFiles(name)
+	return getGossiperFilesStatus(name)
 }
 
-func getGossiperFiles(name string) map[string]file.File {
+func getGossiperFilesStatus(name string) map[string]file.FileStatus {
 	targetGossiper, found := gossiperPool.getGossiper(name)
 	if !found {
 		return nil
 	}
-	files := targetGossiper.GetFiles()
+	files := targetGossiper.GetFilesStatus()
 	return files
 }
 

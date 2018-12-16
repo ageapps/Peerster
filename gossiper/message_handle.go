@@ -215,14 +215,10 @@ func (gossiper *Gossiper) handleSearchRequest(msg *data.SearchRequest, address s
 	if !gossiper.duplicateProcess(name, PROCESS_SEARCH) {
 		var results []*data.SearchResult
 		for _, keyword := range msg.Keywords {
-			for _, gossiperFile := range gossiper.GetFileStore().GetFiles() {
-				if _, ok := file.MatchKeyword(keyword); ok {
-					logger.Logf("Match found for %v in %v requested by %v", keyword, gossiperFile.Name, msg.Origin)
-					if blob, found := gossiper.GetFileStore().GetBlobFromFile(gossiperFile); found {
-						results = append(results, data.NewSearchResult(gossiperFile.Name, gossiperFile.GetMetaHash(), blob.GetChunkMap(), blob.GetChunkCount()))
-					} else {
-						logger.Logf("Coundn´t find the corresponding blob to file %v", gossiperFile.Name)
-					}
+			for _, gossiperBlob := range gossiper.GetFileStore().GetBlobs() {
+				if strings.Contains(gossiperBlob.GetName(), keyword) {
+					logger.Logf("%v - Match found for %v in %v requested by %v", gossiper.Name, keyword, gossiperBlob.GetName(), msg.Origin)
+					results = append(results, data.NewSearchResult(gossiperBlob.GetName(), gossiperBlob.GetMetaHash(), gossiperBlob.GetChunkMap(), gossiperBlob.GetChunkCount()))
 				}
 			}
 		}

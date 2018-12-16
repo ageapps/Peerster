@@ -93,7 +93,9 @@ func (handler *SearchHandler) Start(onFileReceviedHandler func(*data.FileResult)
 					onFileReceviedHandler(fileResult)
 				}
 				nrMatches := len(handler.matchedDestinations)
+
 				if nrMatches >= handler.matchThreshold {
+					logger.Logf("Found - %v matches, stopping", nrMatches)
 					handler.Stop()
 				}
 			case <-handler.timer.C:
@@ -104,7 +106,7 @@ func (handler *SearchHandler) Start(onFileReceviedHandler func(*data.FileResult)
 					if handler.budget > MaxBudget {
 						handler.waiting = true
 						// create a timeout for waiting for answers
-						timer2 := time.NewTimer(5 * time.Second)
+						timer2 := time.NewTimer(10 * time.Second)
 						go func() {
 							<-timer2.C
 							handler.Stop()

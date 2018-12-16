@@ -103,6 +103,16 @@ func LogSearchFinished() {
 	fmt.Println("SEARCH FINISHED")
 }
 
+// LogForkShort func
+func LogForkShort(hash string) {
+	fmt.Println("FORK-SHORTER " + hash)
+}
+
+// LogForkLong func
+func LogForkLong(blocks int) {
+	fmt.Printf("FORK-LONGER rewind %v blocks\n", blocks)
+}
+
 // CreateLogger func
 func CreateLogger(name, address string, debug bool) {
 	instance.name = name

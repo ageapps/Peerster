@@ -1,8 +1,10 @@
 package file
 
 import (
+	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"strings"
 
@@ -12,8 +14,16 @@ import (
 // File struct
 type File struct {
 	Name         string `json:"name"`
-	Size         int64
-	MetafileHash []byte
+	Size         int64  `json:"size"`
+	MetafileHash []byte `json:"hash"`
+}
+
+// FileStatus struct
+type FileStatus struct {
+	Name         string `json:"name"`
+	Size         int64  `json:"size"`
+	MetafileHash []byte `json:"hash"`
+	Blob         bool   `json:"blob"`
 }
 
 // GetMetaHash of metadata
@@ -50,4 +60,25 @@ func MatchKeyword(match string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// Copy file
+func Copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }

@@ -2,7 +2,7 @@ t = 3 # timer
 n = 4 # node number
 f = test.png
 h = 13fa82c9e76e18e1e8587231be1aa955f3469a20a1b085a28326339f36108ddd
-d = nodeC
+d = nodeA
 s = test
 
 build:
@@ -66,5 +66,4 @@ lint:
 	golint ./...
 
 kill:
-	kill $(lsof -t -i :5000)
-	kill $(lsof -nP -i4TCP:8080 | grep LISTEN)
+	kill $(lsof -nP -t -i4TCP:8080)

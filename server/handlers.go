@@ -66,7 +66,7 @@ func GetFiles(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested for files"))
 		return
 	}
-	send(&w, getGossiperFiles(name))
+	send(&w, getGossiperFilesStatus(name))
 }
 
 // GetNodes func
@@ -155,7 +155,7 @@ func PostRequest(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error while sending new request"))
 		return
 	}
-	send(&w, getGossiperFiles(name))
+	send(&w, getGossiperFilesStatus(name))
 }
 
 // PostNode func
@@ -228,12 +228,12 @@ func downloadFile(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 	filetype := http.DetectContentType(fileBytes)
-	if filetype != "image/jpeg" && filetype != "image/jpg" &&
-		filetype != "image/gif" && filetype != "image/png" &&
-		filetype != "application/pdf" {
-		sendError(&w, fmt.Errorf("invalid file type, %v", err))
-		return ""
-	}
+	// if filetype != "image/jpeg" && filetype != "image/jpg" &&
+	// 	filetype != "image/gif" && filetype != "image/png" &&
+	// 	filetype != "application/pdf" {
+	// 	sendError(&w, fmt.Errorf("invalid file type, %v", err))
+	// 	return ""
+	// }
 	fileName := strings.Split(handler.Filename, ".")[0]
 	fileEndings, err := mime.ExtensionsByType(filetype)
 	if err != nil {

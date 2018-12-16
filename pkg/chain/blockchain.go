@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/ageapps/Peerster/pkg/logger"
 
@@ -34,6 +35,7 @@ type BlockChain struct {
 	MinedBlocks    chan *data.Block
 	TxChannel      chan *data.TxPublish
 	BlockChannel   chan *data.Block
+	BlockTime      uint64
 }
 
 // NewBlockChain func
@@ -49,6 +51,7 @@ func NewBlockChain() *BlockChain {
 		MinedBlocks:    make(chan *data.Block, 5),
 		TxChannel:      make(chan *data.TxPublish, 5),
 		BlockChannel:   make(chan *data.Block, 5),
+		BlockTime:      uint64(2 * time.Second),
 	}
 
 }
@@ -80,12 +83,13 @@ func (bc *BlockChain) mine() {
 	prev := bc.getPrevHash()
 	logger.Logf("Expecting - %v", hex.EncodeToString(prev[:]))
 	logger.Logf("Mining block with parent - %v", currentBlock.PrintPrev())
-
+	init := getTimestamp()
 	for bc.isMining() {
 		bc.resetCurrentBlock()
 		nonce := currentBlock.Hash()
 		currentBlock.Nonce = nonce
 		if checkZeros(nonce) {
+			bc.setBlockTime(uint64(getTimestamp() - init))
 			logger.LogFoundBlock(currentBlock.String())
 			bc.sendToBlockChannel(&currentBlock)
 			bc.sendToMinedChannel(&currentBlock)
@@ -319,6 +323,7 @@ func (bc *BlockChain) forkCanonicalChain(sideChainIndex, parentIndex int) {
 	canonicalChain := bc.getCanonicalChain()
 	headCanonicalChain := canonicalChain.getSubchain(0, parentIndex+1)
 	removingChain := canonicalChain.getSubchain(parentIndex+1, canonicalChain.size())
+	logger.LogForkLong(len(removingChain.Blocks))
 
 	// add removed block's transactions to pool
 	for _, block := range removingChain.Blocks {
@@ -366,6 +371,7 @@ func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 					parentBlock = blockIndex
 					return
 				}
+				logger.LogForkShort(block.String())
 			}
 
 		}

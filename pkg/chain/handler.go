@@ -45,8 +45,8 @@ func NewChainHandler(address string, peerConection *handler.ConnectionHandler, s
 		Peers:         peers,
 		timer:         &time.Timer{},
 		quitChannel:   make(chan bool),
-		BundleChannel: make(chan *data.TransactionBundle, 5),
-		BlockChannel:  make(chan *data.BlockBundle, 5),
+		BundleChannel: make(chan *data.TransactionBundle),
+		BlockChannel:  make(chan *data.BlockBundle),
 		fileStore:     store,
 	}
 }
@@ -89,7 +89,7 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 				fileExists := !bundle.LocalFile && handler.fileStore.FileExists(fileHash.String())
 				if !fileExists && !handler.blockchain.IsTransactionSaved(transaction) {
 					transaction.HopLimit--
-					go handler.GetStore().IndexFile(file)
+					handler.GetStore().IndexFile(file)
 					handler.addTransaction(transaction)
 					if transaction.HopLimit > 0 {
 						handler.publishTX(file, transaction.HopLimit, bundle.Origin)
@@ -98,8 +98,11 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 					logger.Logf("Transaction for %v already indexed", file.Name)
 				}
 			case minedBlock := <-handler.blockchain.MinedBlocks:
-				handler.publishBlock(minedBlock, uint32(20), handler.gossiperAddres)
-				logger.Log("XXXXXXXXXXXXXXXs")
+				timer2 := time.NewTimer(time.Duration(2 * handler.blockchain.getBlockTime()))
+				go func() {
+					<-timer2.C
+					handler.publishBlock(minedBlock, uint32(20), handler.gossiperAddres)
+				}()
 
 			case blockBundle := <-handler.BlockChannel:
 				blockMsg := blockBundle.BlockPublish
@@ -113,7 +116,6 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 						handler.publishBlock(&blockMsg.Block, blockMsg.HopLimit, blockBundle.Origin)
 					}
 				}
-				logger.Log("YYYYYYYYYY")
 			case <-handler.quitChannel:
 				logger.Log("Finishing Blockchain handler")
 				if handler.timer.C != nil {
@@ -128,24 +130,12 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 			}
 		}
 	}()
-	logger.Log("ZZZZZZZZZZZZZZ")
 }
 
 func (handler *ChainHandler) StartBlockchain() {
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		handler.blockchain.Start(func() {
-			logger.Log("Stopped Blockchain succesfully")
-		})
-	}()
-	wg.Wait()
-	logger.Log("WWWWWWWWWWWW")
-	logger.Log("WWWWWWWWWWWW")
-	logger.Log("WWWWWWWWWWWW")
-	logger.Log("WWWWWWWWWWWW")
+	handler.blockchain.Start(func() {
+		logger.Log("Stopped Blockchain succesfully")
+	})
 }
 
 func (handler *ChainHandler) indexTransactionsInBlock(block *data.Block) {

@@ -60,6 +60,7 @@ func (meta *Metadata) loadMetadata() error {
 
 	// 1. Open file
 	filePath := path.Join(utils.GetBlobsPath(), SharedBlobsDir, meta.filename)
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("error opening file: %v", err)
@@ -69,6 +70,10 @@ func (meta *Metadata) loadMetadata() error {
 		if err = file.Close(); err != nil {
 			log.Fatal(err)
 		}
+	}()
+	defer func() {
+		// copy file to downloads
+		Copy(filePath, path.Join(utils.GetBlobsPath(), DownloadsDir, meta.filename))
 	}()
 	fileSize := meta.size
 	chunkNumber := int(math.Ceil(float64(fileSize) / float64(ChunckSize)))
@@ -121,7 +126,8 @@ func (meta *Metadata) loadMetadata() error {
 }
 
 func getFileSize(filename string) (int64, error) {
-	fi, e := os.Stat(utils.GetBlobsPath() + "/_SharedFiles/" + filename)
+	filePath := path.Join(utils.GetBlobsPath(), SharedBlobsDir, filename)
+	fi, e := os.Stat(filePath)
 	if e != nil {
 		return -1, fmt.Errorf("error estracting data from file %v, ", e)
 	}

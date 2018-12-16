@@ -114,6 +114,7 @@ func (handler *FileHandler) Start(onStopHandler func()) {
 							log.Fatal(err)
 						}
 						handler.file.SetSize(size)
+						onStopHandler()
 					}()
 					break
 				}
@@ -123,7 +124,6 @@ func (handler *FileHandler) Start(onStopHandler func()) {
 		if !handler.stopped {
 			close(handler.ChunkChannel)
 		}
-		onStopHandler()
 	}()
 
 }

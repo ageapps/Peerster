@@ -3,6 +3,7 @@ package chain
 import (
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/ageapps/Peerster/pkg/data"
 	"github.com/ageapps/Peerster/pkg/utils"
@@ -183,4 +184,18 @@ func (bc *BlockChain) sendToMinedChannel(bl *data.Block) {
 	if !bc.isStopped() {
 		bc.getMinedChannel() <- bl
 	}
+}
+func (bc *BlockChain) getBlockTime() uint64 {
+	bc.mux.Lock()
+	defer bc.mux.Unlock()
+	return bc.BlockTime
+}
+func (bc *BlockChain) setBlockTime(t uint64) {
+	bc.mux.Lock()
+	bc.BlockTime = t
+	bc.mux.Unlock()
+}
+
+func getTimestamp() int64 {
+	return time.Now().UnixNano()
 }
