@@ -2,8 +2,8 @@
 Peerster
 client/client
 server/server
-.*
-_*
+
+
 .DS_Store
 node_modules
 /dist
